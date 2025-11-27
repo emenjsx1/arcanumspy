@@ -162,7 +162,7 @@ export default function ModelosCopyPage() {
               <div className="border-t pt-4">
                 <h4 className="text-sm font-semibold mb-2">Exemplo:</h4>
                 <div className="bg-muted/30 rounded-lg p-3 text-sm italic text-muted-foreground">
-                  "{modelo.exemplo}"
+                  &quot;{modelo.exemplo}&quot;
                 </div>
               </div>
 

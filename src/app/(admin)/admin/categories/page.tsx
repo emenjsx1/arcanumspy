@@ -33,6 +33,7 @@ export default function AdminCategoriesPage() {
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const { toast } = useToast()
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadCategories()
   }, [])

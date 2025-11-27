@@ -58,6 +58,7 @@ export default function VoicesPage() {
   const testAudioRef = useRef<HTMLAudioElement>(null)
   const [activeTab, setActiveTab] = useState("upload")
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Apenas verificar autenticação
     if (!isAuthenticated) {
@@ -1316,7 +1317,7 @@ export default function VoicesPage() {
                           <p className="text-lg font-semibold mb-2">Gravação de Áudio</p>
                           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                             Para clonar sua voz, você precisa fazer upload de arquivos de áudio. 
-                            Use a aba "Upload" para enviar 2-3 arquivos de áudio de 20-40 segundos cada.
+                            Use a aba &quot;Upload&quot; para enviar 2-3 arquivos de áudio de 20-40 segundos cada.
                           </p>
                           <Button
                             onClick={() => {
@@ -1352,7 +1353,7 @@ export default function VoicesPage() {
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm font-medium mb-2">Voz: {testingVoice.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    Texto de teste: "{testText}"
+                    Texto de teste: &quot;{testText}&quot;
                   </p>
                 </div>
 

@@ -81,6 +81,7 @@ export default function AdminCreditsPage() {
   const [blockingUser, setBlockingUser] = useState(false)
   const [showBlockDialog, setShowBlockDialog] = useState(false)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadData()
   }, [])

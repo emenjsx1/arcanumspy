@@ -108,6 +108,7 @@ function ProfileDropdown() {
     if (user && !profile) {
       refreshProfile()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]) // Remover refreshProfile e profile das dependências
 
 

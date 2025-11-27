@@ -111,6 +111,7 @@ export default function AdminOffersPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const loadData = async () => {
       const startTime = Date.now()

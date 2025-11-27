@@ -49,6 +49,7 @@ export default function VoiceDetailPage() {
   const [topP, setTopP] = useState<number>(0.9) // Top-p: 0.0 a 1.0 (padrão: 0.9)
   const [language, setLanguage] = useState<string>('auto') // Idioma: 'auto' = detectar do áudio (preserva sotaque)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (voiceId && isAuthenticated) {
       loadVoice()
@@ -404,7 +405,7 @@ export default function VoiceDetailPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Modelo "s1" garante preservação de gênero, timbre e sotaque
+                Modelo &quot;s1&quot; garante preservação de gênero, timbre e sotaque
               </p>
             </div>
 

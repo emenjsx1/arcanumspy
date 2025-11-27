@@ -80,6 +80,7 @@ export default function CreditsPage() {
   const [customCredits, setCustomCredits] = useState<number>(100)
   const [showCustomInput, setShowCustomInput] = useState(false)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadData()
   }, [])

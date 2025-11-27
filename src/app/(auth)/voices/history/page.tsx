@@ -46,6 +46,7 @@ export default function VoiceHistoryPage() {
   })
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadGenerations()
   }, [selectedVoiceId])

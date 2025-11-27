@@ -65,7 +65,7 @@ export default function AboutPage() {
             <div className="max-w-4xl mx-auto">
               <div className="prose prose-lg max-w-none">
                 <p className="text-lg text-[#6b6b6b] leading-relaxed mb-6">
-                  Ao invés de começar do zero, você pode estudar ofertas que já funcionam, entender os padrões que fazem elas converterem, e aplicar esses insights nas suas próprias campanhas. É como ter acesso ao "código-fonte" das melhores ofertas do mercado.
+                  Ao invés de começar do zero, você pode estudar ofertas que já funcionam, entender os padrões que fazem elas converterem, e aplicar esses insights nas suas próprias campanhas. É como ter acesso ao &quot;código-fonte&quot; das melhores ofertas do mercado.
                 </p>
                 <p className="text-lg text-[#6b6b6b] leading-relaxed">
                   No SwipeVault Pro, não apenas oferecemos acesso a essas ofertas, mas também fornecemos análises detalhadas, ferramentas de IA para criar vozes e copy, e monitoramento de criativos que estão realmente escalando.

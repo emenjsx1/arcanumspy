@@ -31,6 +31,7 @@ export default function BillingPage() {
   const [changingPlan, setChangingPlan] = useState<string | null>(null)
   const { toast } = useToast()
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadData()
   }, [])

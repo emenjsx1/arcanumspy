@@ -32,6 +32,7 @@ export default function AdminCommunitiesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const { toast } = useToast()
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadCommunities()
   }, [])

@@ -50,6 +50,7 @@ export default function AdminSupportPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const { toast } = useToast()
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadTickets()
   }, [statusFilter])

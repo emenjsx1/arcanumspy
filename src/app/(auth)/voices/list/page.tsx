@@ -40,6 +40,7 @@ export default function MyVoicesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [voiceToDelete, setVoiceToDelete] = useState<string | null>(null)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadVoices()
   }, [])

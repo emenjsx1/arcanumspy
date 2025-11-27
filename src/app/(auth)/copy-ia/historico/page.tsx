@@ -23,6 +23,7 @@ export default function HistoricoCopyPage() {
   const [selectedCopy, setSelectedCopy] = useState<CopyGeneration | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadCopies()
   }, [])
