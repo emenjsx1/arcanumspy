@@ -104,8 +104,8 @@ export default function MyVoicesPage() {
 
       // Reproduzir nova voz
       const voice = voices.find(v => v.id === voiceId)
-      if (voice?.audio_url || (voice?.audio_urls && voice.audio_urls.length > 0)) {
-        const audioUrl = voice.audio_url || voice.audio_urls?.[0]
+      if (voice?.audioUrl || ((voice as any)?.audio_urls && (voice as any).audio_urls.length > 0)) {
+        const audioUrl = voice?.audioUrl || (voice as any)?.audio_urls?.[0]
         const audio = new Audio(audioUrl)
         audioRefs.set(voiceId, audio)
         setAudioRefs(new Map(audioRefs))
@@ -185,7 +185,7 @@ export default function MyVoicesPage() {
   }
 
   const handleDownload = (voice: VoiceClone) => {
-    const audioUrl = voice.audio_url || voice.audio_urls?.[0]
+    const audioUrl = voice.audioUrl || (voice as any).audio_urls?.[0]
     if (audioUrl) {
       const link = document.createElement('a')
       link.href = audioUrl
@@ -265,7 +265,7 @@ export default function MyVoicesPage() {
             <div className="space-y-2">
               {voices.map((voice) => {
                 // Validar se há URL de áudio válida
-                const hasAudio = voice.audio_url || (voice.audio_urls && voice.audio_urls.length > 0)
+                const hasAudio = voice?.audioUrl || ((voice as any)?.audio_urls && (voice as any).audio_urls.length > 0)
                 
                 return (
                   <div

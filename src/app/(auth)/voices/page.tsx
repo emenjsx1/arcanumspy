@@ -57,6 +57,24 @@ export default function VoicesPage() {
   const [generatingTest, setGeneratingTest] = useState(false)
   const testAudioRef = useRef<HTMLAudioElement>(null)
   const [activeTab, setActiveTab] = useState("upload")
+  
+  // Estados para handleGenerate (função não usada, mas mantida para compatibilidade)
+  const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
+  const [text, setText] = useState("")
+  const [generating, setGenerating] = useState(false)
+  const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null)
+  const [voices, setVoices] = useState<VoiceClone[]>([])
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [audioPlaying, setAudioPlaying] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<'s1' | 'speech-1.5'>('s1')
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [narrationHistory, setNarrationHistory] = useState<NarrationHistory[]>([])
+  const [narrations, setNarrations] = useState<NarrationHistory[]>([])
+  const [speed, setSpeed] = useState<number>(1.0)
+  const [volume, setVolume] = useState<number>(0)
+  const [temperature, setTemperature] = useState<number>(0.9)
+  const [topP, setTopP] = useState<number>(0.9)
+  const [language, setLanguage] = useState<string>('auto')
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -278,7 +296,6 @@ export default function VoicesPage() {
         
         session = supabaseSession
       } else {
-        console.log('⚠️ MODO DESENVOLVIMENTO: Usando API key do Fish (sem autenticação Supabase)')
       }
 
       // Verificar saldo antes de fazer upload (apenas se não estiver em modo desenvolvimento)
@@ -303,6 +320,19 @@ export default function VoicesPage() {
               variant: "destructive",
               duration: 8000,
             })
+            setUploading(false)
+            return
+          }
+
+          // Mostrar popup de confirmação antes de criar a voz
+          const confirmed = window.confirm(
+            `⚠️ ATENÇÃO: A criação desta voz custará ${creditsRequired} créditos.\n\n` +
+            `Seu saldo atual: ${currentBalance} créditos\n` +
+            `Saldo após criação: ${currentBalance - creditsRequired} créditos\n\n` +
+            `Deseja continuar?`
+          )
+
+          if (!confirmed) {
             setUploading(false)
             return
           }
@@ -339,14 +369,11 @@ export default function VoicesPage() {
       if (useFishApiKey) {
         // Modo desenvolvimento: usar API key do Fish
         headers['x-fish-api-key'] = fishApiKey
-        console.log('   ✅ Enviando header x-fish-api-key')
       } else if (session?.access_token) {
         // Modo normal: usar token do Supabase
         headers['Authorization'] = `Bearer ${session.access_token}`
-        console.log('   ✅ Enviando token do Supabase')
       }
 
-      console.log('📤 Fazendo upload de áudio...')
       const response = await fetch('/api/voices/create-voice', {
         method: 'POST',
         credentials: 'include', // Incluir cookies na requisição
@@ -354,7 +381,6 @@ export default function VoicesPage() {
         body: formData,
       })
       
-      console.log('📥 Resposta recebida:', response.status, response.statusText)
 
       if (response.status === 401) {
         const errorData = await response.json().catch(() => ({}))
@@ -426,8 +452,8 @@ export default function VoicesPage() {
           setVoiceDescription("")
           setTestText("")
           
-          // Recarregar vozes
-          await loadVoices()
+          // Recarregar vozes - redirecionar para página de listagem
+          router.push('/voices/list')
         }
       } else {
         const errorMessage = data.error || data.message || "Erro ao criar clone de voz"
@@ -579,7 +605,6 @@ export default function VoicesPage() {
         })
         
         // Recarregar histórico após gerar narração
-        console.log('🔄 Recarregando histórico após gerar narração...')
         await loadHistory()
       } else {
         const errorMessage = data.error || data.message || "Erro ao gerar narração"
@@ -648,7 +673,8 @@ export default function VoicesPage() {
           title: "Sucesso!",
           description: "Voz deletada com sucesso",
         })
-        await loadVoices()
+        // Recarregar vozes - redirecionar para página de listagem
+        router.push('/voices/list')
       } else {
         toast({
           title: "Erro",
@@ -719,7 +745,6 @@ export default function VoicesPage() {
       const data = await response.json()
       
       if (data.success) {
-        console.log('✅ Histórico carregado:', data.narrations?.length || 0, 'narrações')
         setNarrations(data.narrations || [])
       } else {
         console.error('❌ Resposta sem sucesso:', data)
@@ -827,7 +852,8 @@ export default function VoicesPage() {
       setVoiceDescription("")
       
       // Recarregar vozes para atualizar a lista
-      await loadVoices()
+      // Recarregar vozes - redirecionar para página de listagem
+      router.push('/voices/list')
       
       toast({
         title: "Sucesso!",

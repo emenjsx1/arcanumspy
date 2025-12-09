@@ -28,7 +28,8 @@ export async function GET(
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (!profile || profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }
@@ -76,7 +77,8 @@ export async function PUT(
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (!profile || profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }
@@ -114,6 +116,9 @@ export async function PUT(
     )
   }
 }
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-# Credenciais de Teste - SwipeVault Pro
+# Credenciais de Teste - ArcanumSpy
 
 ## 📋 Usuários de Teste
 
@@ -38,7 +38,7 @@ Os usuários de teste estão definidos em `src/lib/mock-data.ts`.
 ### 👨‍💼 Usuário Admin
 
 #### Admin User
-- **Email:** `admin@swipevault.com`
+- **Email:** `admin@arcanumspy.com`
 - **Senha:** `password123`
 - **Plano:** Elite
 - **Role:** admin
@@ -50,7 +50,7 @@ Os usuários de teste estão definidos em `src/lib/mock-data.ts`.
 
 1. Acesse `http://localhost:3000/login`
 2. Use qualquer um dos emails acima com a senha `password123`
-3. Para acessar o painel admin, use: `admin@swipevault.com`
+3. Para acessar o painel admin, use: `admin@arcanumspy.com`
 
 ## 📝 Notas
 

@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS voice_clones (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   voice_id TEXT NOT NULL, -- ID gerado localmente para identificação
-  name TEXT NOT NULL,
+  name TEXT NOT NULL,image.png olha desigb ai 
+  
   description TEXT,
   audio_url TEXT, -- URL do áudio no Supabase Storage
   status TEXT NOT NULL DEFAULT 'ready', -- 'processing', 'ready', 'failed'

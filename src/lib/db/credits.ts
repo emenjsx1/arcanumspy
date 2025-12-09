@@ -2,13 +2,25 @@ import { supabase as browserClient } from "@/lib/supabase/client"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Database } from "@/types/database"
 
-// Import dinâmico do server client para evitar erro em Client Components
+// CORREÇÃO: Import dinâmico do server client - só importa em runtime no servidor
+// Usar uma função que verifica o ambiente antes de importar
 async function getServerClient() {
+  // CORREÇÃO: Verificar se estamos no servidor antes de tentar importar
+  // Isso evita que o Next.js tente analisar o módulo durante o build
+  if (typeof window !== 'undefined') {
+    // Estamos no cliente, não usar server client
+    return null
+  }
+  
+  // CORREÇÃO: Usar uma string dinâmica para o import para evitar análise estática
+  // Isso garante que o módulo só seja carregado em runtime no servidor
   try {
-    const { createClient } = await import("@/lib/supabase/server")
-    return await createClient()
+    // Usar eval para import dinâmico que não é analisado durante o build
+    const modulePath = "@/lib/supabase/server"
+    const serverModule = await Function('return import("' + modulePath + '")')()
+    return await serverModule.createClient()
   } catch (error) {
-    // Se falhar (Client Component), retornar null para usar browser client
+    // Se falhar (Client Component ou erro de import), retornar null para usar browser client
     return null
   }
 }
@@ -91,20 +103,10 @@ export async function loadCredits(
   paymentId?: string,
   customValues?: { credits: number; price_cents: number }
 ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
-  console.log('🚀 [loadCredits] ========== INÍCIO ==========')
-  console.log('📥 [loadCredits] Parâmetros recebidos:', {
-    userId,
-    packageId,
-    paymentId: paymentId || '(não fornecido)'
-  })
-
   try {
-    console.log('📦 [loadCredits] Criando adminClient...')
     const adminClient = createAdminClient()
-    console.log('✅ [loadCredits] AdminClient criado com sucesso')
     
     // Verificar saldo ANTES
-    console.log('📊 [loadCredits] Verificando saldo ANTES da operação...')
     const { data: balanceBefore, error: balanceBeforeError } = await adminClient
       .from('user_credits')
       .select('balance, total_loaded, total_consumed, updated_at')
@@ -112,12 +114,9 @@ export async function loadCredits(
       .single()
     
     if (balanceBeforeError) {
-      console.log('⚠️ [loadCredits] Erro ao buscar saldo antes (pode ser normal se não existir):', balanceBeforeError.message)
     }
-    console.log('📊 [loadCredits] Saldo ANTES:', balanceBefore || 'Registro não existe ainda')
     
     // Buscar pacote
-    console.log('🔍 [loadCredits] Buscando pacote de créditos...', { packageId })
     const { data: packageData, error: packageError } = await adminClient
       .from('credit_packages')
       .select('*')
@@ -138,32 +137,18 @@ export async function loadCredits(
       return { success: false, error: 'Pacote não encontrado' }
     }
 
-    console.log('✅ [loadCredits] Pacote encontrado:', {
-      id: packageData.id,
-      name: packageData.name,
-      credits: packageData.credits,
-      bonus_credits: packageData.bonus_credits || 0
-    })
-
     // Se houver valores customizados, usar eles; senão usar do pacote
     const creditsToAdd = customValues ? customValues.credits : packageData.credits
     const bonusCredits = customValues ? 0 : (packageData.bonus_credits || 0)
     const totalCredits = creditsToAdd + bonusCredits
     const priceCents = customValues ? customValues.price_cents : packageData.price_cents
     
-    console.log('💰 [loadCredits] Total de créditos a adicionar:', totalCredits, customValues ? '(customizado)' : '(pacote)')
 
     // IMPORTANTE: payment_id agora é sempre TEXT (string) na função SQL
     // Passar como string mesmo se for UUID ou demo_payment_id
     const paymentIdAsText: string | null = paymentId 
       ? String(paymentId) 
       : null
-
-    console.log('🔧 [loadCredits] Payment ID processado:', {
-      original: paymentId,
-      asText: paymentIdAsText,
-      isNull: paymentIdAsText === null
-    })
 
     const metadata = {
       package_name: customValues ? `Compra Customizada (${creditsToAdd} créditos)` : packageData.name,
@@ -174,8 +159,6 @@ export async function loadCredits(
       // Salvar payment_id original no metadata para referência
       ...(paymentId ? { original_payment_id: paymentId } : {})
     }
-
-    console.log('📋 [loadCredits] Metadata preparado:', metadata)
 
     // Preparar parâmetros RPC
     const rpcParams = {
@@ -190,9 +173,6 @@ export async function loadCredits(
       p_metadata: metadata
     }
 
-    console.log('🔄 [loadCredits] Chamando função RPC add_credits...')
-    console.log('📤 [loadCredits] Parâmetros RPC:', JSON.stringify(rpcParams, null, 2))
-
     const { data: transactionData, error: transactionError } = await adminClient
       .rpc('add_credits', rpcParams)
 
@@ -206,10 +186,6 @@ export async function loadCredits(
       return { success: false, error: transactionError.message || 'Erro ao carregar créditos' }
     }
 
-    console.log('✅ [loadCredits] RPC executado com sucesso!')
-    console.log('   Transaction ID retornado:', transactionData)
-    console.log('   Tipo do transactionData:', typeof transactionData)
-
     // Verificar se a transação foi realmente criada
     if (!transactionData) {
       console.error('⚠️ [loadCredits] A função retornou sem transactionId')
@@ -217,11 +193,9 @@ export async function loadCredits(
     }
 
     // Aguardar um pouco para garantir que a transação foi commitada
-    console.log('⏳ [loadCredits] Aguardando 500ms para garantir commit...')
     await new Promise(resolve => setTimeout(resolve, 500))
 
     // Verificar se o saldo foi atualizado
-    console.log('🔍 [loadCredits] Verificando saldo DEPOIS da operação...')
     const { data: balanceAfter, error: balanceAfterError } = await adminClient
       .from('user_credits')
       .select('balance, total_loaded, total_consumed, updated_at')
@@ -231,18 +205,10 @@ export async function loadCredits(
     if (balanceAfterError) {
       console.error('❌ [loadCredits] Erro ao verificar saldo depois:', balanceAfterError)
     } else {
-      console.log('📊 [loadCredits] Saldo DEPOIS:', balanceAfter)
-      console.log('📈 [loadCredits] Comparação de saldos:', {
-        antes: balanceBefore?.balance || 0,
-        depois: balanceAfter?.balance || 0,
-        esperado: (balanceBefore?.balance || 0) + totalCredits,
-        correto: balanceAfter?.balance === ((balanceBefore?.balance || 0) + totalCredits),
-        diferenca: (balanceAfter?.balance || 0) - (balanceBefore?.balance || 0)
-      })
+      // Balance verification successful
     }
 
     // Verificar se a transação foi criada no banco
-    console.log('🔍 [loadCredits] Verificando se transação foi criada no banco...')
     const { data: transactionCheck, error: transactionCheckError } = await adminClient
       .from('credit_transactions')
       .select('id, amount, balance_before, balance_after, created_at, payment_id')
@@ -252,10 +218,8 @@ export async function loadCredits(
     if (transactionCheckError) {
       console.error('❌ [loadCredits] Erro ao verificar transação:', transactionCheckError)
     } else {
-      console.log('✅ [loadCredits] Transação encontrada no banco:', transactionCheck)
     }
 
-    console.log('✅ [loadCredits] ========== SUCESSO ==========')
     return { success: true, transactionId: transactionData }
   } catch (error: any) {
     console.error('💥 [loadCredits] ========== ERRO CRÍTICO ==========')
@@ -377,6 +341,160 @@ export async function getUserCreditTransactions(
   } catch (error) {
     console.error('Error getting user credit transactions:', error)
     return []
+  }
+}
+
+/**
+ * Obter atividades do usuário com créditos consumidos
+ */
+export async function getUserActivities(
+  userId: string,
+  limit: number = 50,
+  offset: number = 0
+): Promise<Array<{
+  id: string
+  type: string
+  credits_used: number
+  offer_id?: string
+  created_at: string
+  metadata?: any
+}>> {
+  try {
+    const serverClient = await getServerClient()
+    const supabase = serverClient || browserClient
+    
+    // Tentar buscar de user_activities primeiro
+    const { data: activities, error: activitiesError } = await supabase
+      .from('user_activities')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (activitiesError) {
+      // Se for erro de RLS, tentar com admin client
+      if (activitiesError.code === '42501' || activitiesError.code === 'PGRST301') {
+        console.warn('⚠️ [getUserActivities] Erro de RLS, tentando com admin client')
+        const adminClient = createAdminClient()
+        const { data: adminActivities, error: adminError } = await adminClient
+          .from('user_activities')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)
+        
+        if (adminError) {
+          console.error('❌ [getUserActivities] Erro mesmo com admin client:', adminError)
+          return []
+        }
+        
+        return (adminActivities || []) as any[]
+      }
+      
+      console.error('❌ [getUserActivities] Erro ao buscar atividades:', activitiesError)
+      return []
+    }
+
+    return (activities || []) as any[]
+  } catch (error) {
+    console.error('Error getting user activities:', error)
+    return []
+  }
+}
+
+/**
+ * Obter estatísticas de créditos do usuário (carregados e consumidos)
+ * Calcula a partir de user_activities e credit_transactions
+ */
+export async function getUserCreditStats(userId: string): Promise<{
+  total_loaded: number
+  total_consumed: number
+  balance: number
+  activities_count: number
+}> {
+  try {
+    const adminClient = createAdminClient()
+    
+    // Buscar transações de crédito (compras/carregamentos)
+    const { data: creditTransactions } = await adminClient
+      .from('credit_transactions')
+      .select('amount, type')
+      .eq('user_id', userId)
+      .eq('type', 'credit')
+      .eq('category', 'purchase')
+
+    let totalLoaded = 0
+    if (creditTransactions) {
+      totalLoaded = creditTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
+    }
+
+    // Buscar atividades para calcular créditos consumidos
+    let activities: any[] | null = null
+    const { data: initialActivities, error: activitiesError } = await adminClient
+      .from('user_activities')
+      .select('credits_used, type')
+      .eq('user_id', userId)
+
+    if (activitiesError) {
+      // Se for erro de RLS, tentar buscar todas e filtrar
+      if (activitiesError.code === '42501' || activitiesError.code === 'PGRST301') {
+        const { data: allActivities } = await adminClient
+          .from('user_activities')
+          .select('credits_used, type')
+          .eq('user_id', userId)
+        
+        activities = allActivities || []
+      } else {
+        console.warn('⚠️ [getUserCreditStats] Erro ao buscar atividades:', activitiesError.message)
+        activities = []
+      }
+    } else {
+      activities = initialActivities || []
+    }
+
+    // Calcular total consumido
+    let totalConsumed = 0
+    let activitiesCount = 0
+    
+    if (activities) {
+      activities.forEach((activity: any) => {
+        const credits = activity.credits_used || 0
+        if (credits > 0) {
+          totalConsumed += credits
+          activitiesCount++
+        }
+      })
+    }
+
+    // Se não encontrou em user_activities, tentar buscar de credit_transactions de débito
+    if (totalConsumed === 0) {
+      const { data: debitTransactions } = await adminClient
+        .from('credit_transactions')
+        .select('amount, type')
+        .eq('user_id', userId)
+        .eq('type', 'debit')
+
+      if (debitTransactions) {
+        totalConsumed = debitTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
+      }
+    }
+
+    const balance = totalLoaded - totalConsumed
+
+    return {
+      total_loaded: totalLoaded,
+      total_consumed: totalConsumed,
+      balance: balance,
+      activities_count: activitiesCount
+    }
+  } catch (error) {
+    console.error('Error getting user credit stats:', error)
+    return {
+      total_loaded: 0,
+      total_consumed: 0,
+      balance: 0,
+      activities_count: 0
+    }
   }
 }
 
@@ -648,7 +766,4 @@ export async function markLowBalanceNotified(userId: string): Promise<boolean> {
     return false
   }
 }
-
-
-
 

@@ -1,19 +1,23 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getAllUsers } from "@/lib/db/admin/users"
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const startTime = Date.now()
-    console.log('⏱️ [API Admin Users] Iniciando busca de todos os usuários...')
+    const { searchParams } = new URL(request.url)
+    const limit = parseInt(searchParams.get('limit') || '0', 10)
+    
     
     // Usar a função getAllUsers que já tem tratamento de erro e busca todos os usuários
     const users = await getAllUsers()
     
+    // Se houver limite, aplicar
+    const limitedUsers = limit > 0 ? users.slice(0, limit) : users
+    
     const totalTime = Date.now() - startTime
-    console.log(`✅ [API Admin Users] ${users.length} usuários retornados em ${totalTime}ms`)
 
     // Mapear para o formato esperado pela página
-    const mappedUsers = users.map(user => ({
+    const mappedUsers = limitedUsers.map(user => ({
       id: user.id,
       name: user.name,
       phone_number: user.phone_number || null,

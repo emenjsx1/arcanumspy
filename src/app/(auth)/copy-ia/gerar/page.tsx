@@ -621,7 +621,7 @@ export default function GerarCopyPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Gerar Copy</h1>
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold break-words">Gerar Copy</h1>
         <p className="text-muted-foreground mt-1">
           Crie copies profissionais em minutos com nosso assistente guiado
         </p>

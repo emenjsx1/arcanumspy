@@ -10,12 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getOffers, OfferWithCategory, OfferFilters } from "@/lib/db/offers"
-import { getAllCategories } from "@/lib/db/categories"
+import { OfferWithCategory, OfferFilters } from "@/lib/db/offers"
 import { saveSearch } from "@/lib/db/search"
 import { isFavorite, toggleFavorite } from "@/lib/db/favorites"
 import { Search, Eye, Heart, Flame, CheckCircle, Beaker, Globe } from "lucide-react"
-import { COUNTRIES, FORMATS, NICHES } from "@/lib/constants"
+import { COUNTRIES, FORMATS, NICHES, LANGUAGES } from "@/lib/constants"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase/client"
 
@@ -33,27 +32,68 @@ function LibraryPageContent() {
     country: searchParams.get('country') || undefined,
     funnel_type: searchParams.get('funnel_type') || undefined,
     temperature: searchParams.get('temperature') || undefined,
-    niche: searchParams.get('niche') || undefined,
+    niche_id: searchParams.get('niche') || undefined,
     product_type: searchParams.get('product_type') || undefined,
   })
 
   useEffect(() => {
     const loadData = async () => {
       const startTime = Date.now()
-      console.log('⏱️ [Library] Iniciando carregamento de dados...')
       
       setLoading(true)
       try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          setLoading(false)
+          return
+        }
+
         const loadStartTime = Date.now()
-        const [offersData, categoriesData] = await Promise.all([
-          getOffers(filters),
-          getAllCategories(),
+        
+        // Construir query string para filtros
+        const queryParams = new URLSearchParams()
+        if (filters.search) queryParams.set('search', filters.search)
+        if (filters.category) queryParams.set('category', filters.category)
+        if (filters.country) queryParams.set('country', filters.country)
+        if (filters.funnel_type) queryParams.set('funnel_type', filters.funnel_type)
+        if (filters.temperature) queryParams.set('temperature', filters.temperature)
+        if (filters.product_type) queryParams.set('product_type', filters.product_type)
+        if (filters.niche_id) queryParams.set('niche_id', filters.niche_id)
+        queryParams.set('limit', '50')
+        
+        const [offersResponse, categoriesResponse] = await Promise.all([
+          fetch(`/api/offers?${queryParams.toString()}`, {
+            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          }),
+          fetch('/api/categories', {
+            credentials: 'include',
+          }),
         ])
+        
         const loadTime = Date.now() - loadStartTime
-        console.log(`⏱️ [Library] Dados carregados em ${loadTime}ms`, {
-          offersCount: offersData.length,
-          categoriesCount: categoriesData.length
-        })
+        
+        let offersData: OfferWithCategory[] = []
+        if (offersResponse.ok) {
+          const result = await offersResponse.json()
+          if (result.success && result.offers) {
+            offersData = result.offers
+          }
+        } else {
+          console.warn('⚠️ [Library] Erro ao carregar ofertas:', offersResponse.status)
+        }
+
+        let categoriesData: any[] = []
+        if (categoriesResponse.ok) {
+          const result = await categoriesResponse.json()
+          if (result.categories) {
+            categoriesData = result.categories
+          }
+        } else {
+          console.warn('⚠️ [Library] Erro ao carregar categorias:', categoriesResponse.status)
+        }
         
         setOffers(offersData)
         setCategories(categoriesData)
@@ -69,12 +109,9 @@ function LibraryPageContent() {
               .eq('user_id', user.id)
             
             const favoriteSet = new Set<string>(
-              favoritesData?.map(f => f.offer_id) || []
+              favoritesData?.map((f: any) => f.offer_id) || []
             )
             const favoritesTime = Date.now() - favoritesStartTime
-            console.log(`⏱️ [Library] Favoritos carregados em ${favoritesTime}ms`, {
-              favoritesCount: favoriteSet.size
-            })
             setFavorites(favoriteSet)
           }
         } catch (favError) {
@@ -83,7 +120,6 @@ function LibraryPageContent() {
         }
         
         const totalTime = Date.now() - startTime
-        console.log(`✅ [Library] Carregamento completo em ${totalTime}ms`)
       } catch (error: any) {
         console.error('❌ [Library] Erro ao carregar dados:', error)
         
@@ -190,7 +226,7 @@ function LibraryPageContent() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <h1 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent break-words">
           Biblioteca de Ofertas
         </h1>
         <p className="text-muted-foreground text-lg">
@@ -206,8 +242,8 @@ function LibraryPageContent() {
             placeholder="Pesquisar por oferta, nicho, país ou tipo de página..."
             className="pl-10 h-12"
             value={filters.search || ""}
-            onChange={(e) => handleSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch(e.target.value)}
+            onChange={(e) => handleSearch((e.target as HTMLInputElement).value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch((e.target as HTMLInputElement).value)}
           />
         </div>
       </div>
@@ -245,9 +281,9 @@ function LibraryPageContent() {
               <div className="space-y-2">
                 <Label>Nicho</Label>
                 <Select
-                  value={filters.niche || "all"}
-                  onValueChange={(value) =>
-                    setFilters({ ...filters, niche: value === "all" ? undefined : value })
+                  value={filters.niche_id || "all"}
+                  onValueChange={(value: string) =>
+                    setFilters({ ...filters, niche_id: value === "all" ? undefined : value })
                   }
                 >
                   <SelectTrigger>
@@ -352,7 +388,7 @@ function LibraryPageContent() {
             )}
           </div>
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i} className="border">
                   <CardHeader>
@@ -367,7 +403,7 @@ function LibraryPageContent() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               {offers.length > 0 ? offers.map((offer) => (
                 <Card key={offer.id} className="hover:shadow-xl transition-all border-2 hover:border-primary/50 hover:scale-[1.01] bg-gradient-to-br from-background via-background to-muted/20">
                   <CardHeader>
@@ -384,12 +420,25 @@ function LibraryPageContent() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex flex-wrap gap-2">
+                      {offer.niche && (
+                        <Badge variant="secondary" className="text-xs bg-[#ff5a1f]/20 text-[#ff5a1f]">
+                          {typeof offer.niche === 'string' ? offer.niche : (offer.niche as any)?.name || 'Nicho'}
+                        </Badge>
+                      )}
                       <Badge variant="outline" className="text-xs">
                         {offer.funnel_type || 'VSL'}
                       </Badge>
                       <Badge variant="outline" className="text-xs">
                         {getCountryIcon(offer.country)} {getCountryName(offer.country)}
                       </Badge>
+                      {(offer as any).language && (
+                        <Badge variant="outline" className="text-xs">
+                          {(() => {
+                            const lang = LANGUAGES.find(l => l.code === (offer as any).language)
+                            return lang ? `${lang.flag} ${lang.name}` : (offer as any).language
+                          })()}
+                        </Badge>
+                      )}
                       {offer.conversion_rate && (
                         <Badge variant="outline" className="text-xs">
                           {offer.conversion_rate}% conv.

@@ -176,7 +176,7 @@ export async function adminGetAllTickets(filters?: TicketFilters): Promise<Ticke
       .from('tickets')
       .select(`
         *,
-        user:profiles(id, name, phone_number),
+        user:profiles(id, name, email, phone_number),
         subscriptions(
           plan:plans(name, slug)
         )

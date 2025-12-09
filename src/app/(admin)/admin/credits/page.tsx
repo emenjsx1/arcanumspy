@@ -80,13 +80,21 @@ export default function AdminCreditsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [blockingUser, setBlockingUser] = useState(false)
   const [showBlockDialog, setShowBlockDialog] = useState(false)
+  // CORREÇÃO: Flags para evitar múltiplas execuções simultâneas
+  const [dataLoaded, setDataLoaded] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(false)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    // CORREÇÃO: Se já carregou os dados ou está carregando, não executar novamente
+    if (dataLoaded || isLoadingData) return
+    
     loadData()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoaded, isLoadingData])
 
   const loadData = async () => {
+    // Marcar como carregando para evitar execuções simultâneas
+    setIsLoadingData(true)
     try {
       setLoading(true)
       const { data: { session } } = await supabase.auth.getSession()
@@ -117,8 +125,18 @@ export default function AdminCreditsPage() {
       if (usersResponse.ok) {
         const usersData = await usersResponse.json()
         if (usersData.success) {
-          setUsers(usersData.users)
+          setUsers(usersData.users || [])
+        } else {
+          console.warn('⚠️ [Admin Credits] Resposta sem success:', usersData)
         }
+      } else {
+        const errorData = await usersResponse.json().catch(() => ({}))
+        console.error('❌ [Admin Credits] Erro ao carregar usuários:', usersResponse.status, errorData)
+        toast({
+          title: "Erro",
+          description: `Erro ao carregar usuários: ${errorData.error || usersResponse.statusText}`,
+          variant: "destructive",
+        })
       }
 
       // Carregar dívidas
@@ -134,6 +152,8 @@ export default function AdminCreditsPage() {
           setDebts(debtsData.debts)
         }
       }
+      
+      setDataLoaded(true)
     } catch (error) {
       console.error('Error loading credits data:', error)
       toast({
@@ -143,6 +163,7 @@ export default function AdminCreditsPage() {
       })
     } finally {
       setLoading(false)
+      setIsLoadingData(false)
     }
   }
 
@@ -280,7 +301,6 @@ export default function AdminCreditsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Créditos Carregados</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{stats.total_credits_loaded.toLocaleString()}</div>
@@ -290,7 +310,6 @@ export default function AdminCreditsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Créditos Consumidos</CardTitle>
-              <TrendingDown className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">{stats.total_credits_consumed.toLocaleString()}</div>
@@ -669,12 +688,4 @@ export default function AdminCreditsPage() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
 

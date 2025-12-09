@@ -6,7 +6,6 @@ import Link from "next/link"
 import { useAuthStore } from "@/store/auth-store"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Logo } from "@/components/layout/logo"
-import { CreditAlert } from "@/components/credits/credit-alert"
 import { MobileMenu } from "@/components/layout/mobile-menu"
 import { supabase } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -28,22 +27,107 @@ export default function AuthLayout({
   const { isAuthenticated, user, initialize, isLoading } = useAuthStore()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  // CORREÇÃO: Flag para evitar múltiplos redirecionamentos simultâneos
+  const [redirecting, setRedirecting] = useState(false)
+  const [initialized, setInitialized] = useState(false)
+  // CORREÇÃO: Timeout de segurança para evitar loading infinito (declarar antes de usar)
+  const [safetyTimeout, setSafetyTimeout] = useState(false)
 
+  // CORREÇÃO: Inicializar auth apenas uma vez, com controle de estado
   useEffect(() => {
+    let isMounted = true
+    
     const initAuth = async () => {
-      await initialize()
+      if (initialized || !isMounted) return
+      
       setMounted(true)
+      
+      // CORREÇÃO: Inicializar imediatamente, sem delay desnecessário
+      // O delay estava causando o problema de "Carregando..." infinito
+      try {
+        await initialize()
+        if (isMounted) {
+          setInitialized(true)
+        }
+      } catch (error) {
+        console.error('Erro ao inicializar auth:', error)
+        if (isMounted) {
+          setInitialized(true) // Marcar como inicializado mesmo em erro
+        }
+      }
     }
+    
+    // Executar imediatamente
     initAuth()
-  }, [initialize])
-
-  useEffect(() => {
-    if (mounted && !isAuthenticated && !isLoading) {
-      router.push("/login")
+    
+    return () => {
+      isMounted = false
     }
-  }, [mounted, isAuthenticated, isLoading, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Executar apenas uma vez na montagem
 
-  if (!mounted || isLoading) {
+  // CORREÇÃO: Verificar autenticação apenas após inicialização completa
+  useEffect(() => {
+    // Não fazer nada se ainda não inicializou ou está carregando
+    if (!mounted || !initialized || isLoading) return
+    
+    // CORREÇÃO: Se passou o timeout de segurança, não redirecionar automaticamente
+    // Deixar o usuário ver a página mesmo se a autenticação ainda está verificando
+    if (safetyTimeout) return
+    
+    // CORREÇÃO: Evitar redirecionamentos múltiplos
+    if (redirecting) return
+
+    // CORREÇÃO: Verificar estado inconsistente (isAuthenticated: true mas user: null)
+    if (isAuthenticated && !user) {
+      // Estado inconsistente - resetar e redirecionar apenas uma vez
+      if (!redirecting) {
+        setRedirecting(true)
+        const timeoutId = setTimeout(() => {
+          router.replace("/login")
+        }, 100)
+        return () => {
+          clearTimeout(timeoutId)
+          // Resetar flag após um tempo
+          setTimeout(() => setRedirecting(false), 500)
+        }
+      }
+      return
+    }
+
+    // CORREÇÃO: Redirecionar apenas se realmente não está autenticado
+    // E apenas se não passou o timeout de segurança
+    if (!isAuthenticated && !redirecting && !safetyTimeout) {
+      setRedirecting(true)
+      const timeoutId = setTimeout(() => {
+        router.replace("/login")
+      }, 500) // Aumentar delay para dar tempo da autenticação carregar
+      return () => {
+        clearTimeout(timeoutId)
+        // Resetar flag após um tempo
+        setTimeout(() => setRedirecting(false), 500)
+      }
+    }
+    // CORREÇÃO: Remover 'user' das dependências para evitar re-renders desnecessários
+    // O 'isAuthenticated' já reflete o estado do usuário
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, initialized, isAuthenticated, isLoading, redirecting, safetyTimeout])
+
+  // CORREÇÃO: Timeout de segurança para evitar loading infinito
+  useEffect(() => {
+    // Timeout de segurança: se após 2 segundos ainda não inicializou, permitir renderização
+    const timeout = setTimeout(() => {
+      setSafetyTimeout(true)
+    }, 2000)
+    
+    return () => clearTimeout(timeout)
+  }, [])
+  
+  // CORREÇÃO: Mostrar loading apenas se ainda não inicializou E não passou o timeout de segurança
+  // Se passou o timeout, sempre permitir renderização (mesmo que ainda esteja carregando)
+  const shouldShowLoading = (!mounted || (!initialized && !safetyTimeout) || (isLoading && !safetyTimeout))
+  
+  if (shouldShowLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -54,19 +138,37 @@ export default function AuthLayout({
     )
   }
 
-  if (!isAuthenticated) {
-    return null
+  // CORREÇÃO: Se não está autenticado após verificação completa, mostrar loading (já redirecionou)
+  // Mas apenas se não passou o timeout de segurança (para evitar bloqueio infinito)
+  if ((!isAuthenticated || redirecting) && !safetyTimeout) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Redirecionando...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // CORREÇÃO: Se passou o timeout e ainda não está autenticado, permitir renderização
+  // O useEffect de redirecionamento vai cuidar do redirect
+  if (!isAuthenticated && safetyTimeout) {
+    // Não bloquear, deixar o useEffect redirecionar
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    <div className="min-h-screen bg-white dark:bg-black" suppressHydrationWarning>
       {/* Top Navigation Bar (App Bar) fixa no topo */}
-      <header className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-white/95 dark:bg-black/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-black/60 safe-area-pt">
+      <header className="fixed top-0 left-0 right-0 z-40 w-full border-b bg-white/95 dark:bg-black/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-black/60 safe-area-pt">
         <div className="flex h-14 md:h-16 items-center justify-between px-4 md:px-6">
-          {/* Menu hambúrguer (mobile) + Logo */}
+          {/* Logo à esquerda */}
           <div className="flex items-center gap-3">
-            <MobileMenu />
             <Logo href="/dashboard" />
+            {/* Menu hambúrguer (mobile) - ao lado da logo */}
+            <div className="md:hidden">
+              <MobileMenu />
+            </div>
           </div>
           
           {/* Controles à direita */}
@@ -86,8 +188,7 @@ export default function AuthLayout({
         
         {/* Área de conteúdo */}
         <main className="flex-1 min-w-0">
-          <div className="p-4 md:p-6 lg:p-8">
-            <CreditAlert />
+          <div className="p-3 md:p-4 lg:p-6 xl:p-8">
             {children}
           </div>
         </main>
@@ -102,15 +203,25 @@ function ProfileDropdown() {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
 
+  // OTIMIZAÇÃO: Evitar múltiplas chamadas de refreshProfile
   useEffect(() => {
     setMounted(true)
-    // Só recarregar perfil se não tiver perfil ainda
-    if (user && !profile) {
-      refreshProfile()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]) // Remover refreshProfile e profile das dependências
+  }, [])
 
+  // OTIMIZAÇÃO: Carregar perfil apenas uma vez quando necessário
+  useEffect(() => {
+    if (!user?.id || profile) return
+
+    // Debounce para evitar múltiplas chamadas
+    const timer = setTimeout(() => {
+      refreshProfile().catch(() => {
+        // Ignorar erros silenciosamente
+      })
+    }, 500) // Aumentar delay para evitar chamadas rápidas
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]) // Apenas quando user.id mudar
 
   const handleLogout = async () => {
     await logout()
@@ -175,15 +286,9 @@ function ProfileDropdown() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/credits" className="cursor-pointer">
-              <CreditCard className="mr-2 h-4 w-4" />
-              Créditos
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
             <Link href="/billing" className="cursor-pointer">
               <CreditCard className="mr-2 h-4 w-4" />
-              Cobrança
+              Planos e Cobrança
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />

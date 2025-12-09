@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { randomUUID } from "crypto"
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 POST /api/voices/create-voice - Iniciando...')
   
   try {
     // 🔐 AUTENTICAÇÃO OBRIGATÓRIA: Apenas usuários autenticados podem criar vozes
@@ -17,20 +16,15 @@ export async function POST(request: NextRequest) {
     let authError = getUserResult.error
     
     if (user) {
-      console.log('✅ Usuário autenticado via cookies:', user.id)
     } else {
-      console.log('⚠️ Usuário não encontrado via cookies')
       if (authError) {
-        console.log('   Erro:', authError.message)
       }
       
       // Se não funcionou, tenta ler do header Authorization
-      console.log('   Tentando header Authorization...')
       const authHeader = request.headers.get('authorization')
       
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.replace('Bearer ', '')
-        console.log('   Token encontrado no header, verificando...')
         
         try {
           // Validar token diretamente com a API do Supabase
@@ -54,7 +48,6 @@ export async function POST(request: NextRequest) {
             const userData = await validateResponse.json()
             if (userData && userData.id) {
               user = userData
-              console.log('✅ Usuário autenticado via token:', user.id)
             } else {
               authError = { message: 'Token inválido: resposta vazia' }
             }
@@ -63,7 +56,6 @@ export async function POST(request: NextRequest) {
             authError = { message: `Token inválido: ${validateResponse.status}` }
           }
         } catch (tokenError: any) {
-          console.log('   ❌ Erro ao validar token:', tokenError.message)
           authError = tokenError
         }
       }
@@ -85,19 +77,11 @@ export async function POST(request: NextRequest) {
     
     const userId = user.id
     
-    console.log('📥 Lendo formData...')
     const formData = await request.formData()
     const audioCount = parseInt(formData.get("audioCount") as string || "1")
     const name = formData.get("name") as string | null
     const description = formData.get("description") as string | null
     const testText = formData.get("testText") as string | null // Texto de teste opcional
-
-    console.log('📦 Dados recebidos:', {
-      audioCount,
-      name,
-      hasDescription: !!description,
-      hasTestText: !!testText
-    })
 
     // Receber múltiplos áudios (2-3 arquivos)
     const audioFiles: File[] = []
@@ -105,13 +89,11 @@ export async function POST(request: NextRequest) {
       const file = formData.get(`audio${i}`) as File | null
       if (file && file.size > 1000) { // Filtrar arquivos vazios (< 1KB)
         audioFiles.push(file)
-        console.log(`✅ Áudio ${i + 1} recebido:`, file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`)
       } else if (file) {
         console.warn(`⚠️ Áudio ${i + 1} ignorado (muito pequeno):`, file.name, `(${(file.size / 1024).toFixed(2)} KB)`)
       }
     }
     
-    console.log(`📊 Total de áudios válidos recebidos: ${audioFiles.length}`)
 
     // Validar quantidade (2-3 arquivos válidos)
     if (audioFiles.length < 2) {
@@ -130,7 +112,6 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    console.log('✅ Validação de quantidade passou')
     
     // Ler transcrições se fornecidas
     const transcripts: string[] = []
@@ -146,7 +127,6 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    console.log(`📝 Transcrições recebidas: ${transcripts.length}/${audioFiles.length}`)
 
     // Validar cada arquivo
     const allowedTypes = ['audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/webm', 'audio/ogg']
@@ -188,8 +168,6 @@ export async function POST(request: NextRequest) {
     const bucketName = 'voice-clones'
     const USE_SUPABASE_STORAGE = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
     
-    console.log('📤 Iniciando upload de áudios...')
-    console.log('   Supabase Storage configurado:', USE_SUPABASE_STORAGE ? 'Sim' : 'Não')
     
     // 🚨 CRÍTICO: Supabase Storage é obrigatório
     if (!USE_SUPABASE_STORAGE) {
@@ -228,7 +206,6 @@ export async function POST(request: NextRequest) {
         } else {
           for (let i = 0; i < audioFiles.length; i++) {
           const audioFile = audioFiles[i]
-          console.log(`📤 Processando áudio ${i + 1}/${audioFiles.length}:`, audioFile.name)
           
           const audioBuffer = await audioFile.arrayBuffer()
           const audioBytes = Buffer.from(audioBuffer)
@@ -237,7 +214,6 @@ export async function POST(request: NextRequest) {
           // ⚠️ IMPORTANTE: fileName deve ser relativo ao bucket (sem incluir o nome do bucket)
           const fileName = `${userId}/${voiceId}/audio${i + 1}.${fileExtension}`
           
-          console.log(`📤 Fazendo upload: ${bucketName}/${fileName}`)
           
           // Upload do arquivo
           const { data: uploadData, error: uploadError } = await adminClient.storage
@@ -247,7 +223,6 @@ export async function POST(request: NextRequest) {
               upsert: false,
             })
           
-          console.log(`📤 Upload ${i + 1} concluído:`, uploadData ? 'sucesso' : 'erro', uploadError?.message)
 
           if (uploadError) {
             console.error(`❌ Erro ao fazer upload do áudio ${i + 1}:`, uploadError.message)
@@ -280,10 +255,8 @@ export async function POST(request: NextRequest) {
             .getPublicUrl(fileName)
           
             audioUrls.push(publicUrl)
-            console.log(`✅ Áudio ${i + 1} salvo com sucesso:`, publicUrl)
           }
 
-          console.log(`✅ Todos os áudios salvos com sucesso. Total: ${audioUrls.length}`)
         }
     } catch (storageError: any) {
       console.error('❌ Erro geral no Supabase Storage:', storageError.message)
@@ -298,7 +271,6 @@ export async function POST(request: NextRequest) {
     }
 
     // PIPELINE PROFISSIONAL: Processar com Python
-    console.log('🐍 Iniciando pipeline Python profissional...')
     let embeddingUrl: string | null = null // 🚨 CRÍTICO: Variável para salvar URL do embedding
     try {
       const { processMultipleAudios } = await import('@/lib/python-worker')
@@ -306,9 +278,6 @@ export async function POST(request: NextRequest) {
       const outputDir = `${userId}/${voiceId}/processed`
       const pipelineResult = await processMultipleAudios(audioUrls, outputDir)
       
-      console.log(`✅ Pipeline Python concluído:`)
-      console.log(`   - Áudios processados: ${pipelineResult.processedAudios.length}`)
-      console.log(`   - Embedding combinado: shape ${pipelineResult.combinedEmbedding.shape}`)
       
       // Salvar embedding combinado no storage (se Supabase estiver configurado)
       const crypto = require('crypto')
@@ -324,7 +293,6 @@ export async function POST(request: NextRequest) {
           try {
             adminClient = createAdminClient()
           } catch (e) {
-            console.log('⚠️ Não foi possível criar admin client para salvar embedding')
             adminClient = null
           }
           
@@ -345,16 +313,12 @@ export async function POST(request: NextRequest) {
                 .getPublicUrl(embeddingFileName)
               
               embeddingUrl = publicUrl // 🚨 CRÍTICO: Salvar URL do embedding
-              console.log(`✅ Embedding salvo: ${embeddingUrl}`)
-              console.log(`📝 Embedding URL será salvo no banco de dados para validação futura`)
             }
           }
         } catch (embeddingStorageError: any) {
-          console.log('⚠️ Erro ao salvar embedding no storage (continuando):', embeddingStorageError.message)
           // Em modo desenvolvimento, continuar sem salvar no storage
         }
       } else {
-        console.log('⚠️ Embedding não salvo no storage (será usado apenas em memória)')
         // O embedding será usado para validação de qualidade da clonagem
       }
       
@@ -365,9 +329,6 @@ export async function POST(request: NextRequest) {
 
     // 🚨 CRÍTICO: Coqui TTS não precisa criar modelo externo
     // Os áudios de referência serão usados diretamente na geração
-    console.log('✅ Voz preparada para uso com Coqui TTS')
-    console.log(`   ℹ️ Os áudios serão usados como referência diretamente no Coqui TTS`)
-    console.log(`   ℹ️ Voice ID local: ${voiceId}`)
 
     // Usar o primeiro áudio como URL principal (para compatibilidade)
     const audioUrl = audioUrls[0] || null
@@ -414,20 +375,9 @@ export async function POST(request: NextRequest) {
       if (validAudioUrls.length > 0) {
         // Garantir que é um array JSON válido
         insertData.audio_urls = validAudioUrls
-        console.log(`   ✅ Adicionando ${validAudioUrls.length} URLs ao audio_urls`)
-        console.log(`   - Primeira URL: ${validAudioUrls[0]?.substring(0, 50)}...`)
       } else {
-        console.log(`   ⚠️ Nenhuma URL válida para adicionar ao audio_urls`)
-        console.log(`   - Total de audioUrls recebidos: ${audioUrls.length}`)
-        console.log(`   - AudioUrls recebidos:`, audioUrls.map(url => typeof url === 'string' ? url.substring(0, 50) : typeof url))
       }
       
-      console.log('💾 Tentando salvar voz no banco de dados...')
-      console.log('   - User ID:', userId)
-      console.log('   - Voice ID:', voiceId)
-      console.log('   - Audio URLs válidas:', validAudioUrls.length)
-      console.log('   - Tentando inserir com audio_urls:', !!insertData.audio_urls)
-      console.log('   - InsertData completo:', JSON.stringify(insertData, null, 2))
       
       // Verificar se adminClient está funcionando
       try {
@@ -484,7 +434,6 @@ export async function POST(request: NextRequest) {
                                 dbError.code === 'PGRST204' // PostgREST error for column not found
           
           if (isColumnError) {
-            console.log('⚠️ Coluna audio_urls não encontrada, tentando sem ela...')
             
             // Remover audio_urls e tentar novamente (sem metadata também)
             const { audio_urls, metadata, ...insertDataWithoutUrls } = insertData
@@ -507,7 +456,6 @@ export async function POST(request: NextRequest) {
               )
             }
             
-            console.log('✅ Voz salva sem audio_urls (compatibilidade)')
             savedVoiceClone = voiceCloneRetry
             // Continuar para retornar sucesso no final
           } else {
@@ -545,14 +493,8 @@ export async function POST(request: NextRequest) {
         // ✅ SUCESSO! voiceClone foi criado com sucesso
         if (voiceClone) {
           savedVoiceClone = voiceClone
-          console.log('✅ Voz salva com sucesso (com audio_urls):', voiceClone.id)
-          console.log('   - ID:', voiceClone.id)
-          console.log('   - Name:', voiceClone.name)
-          console.log('   - Voice ID:', voiceClone.voice_id)
-          console.log('   - Audio URLs:', voiceClone.audio_urls?.length || 0)
         } else if (voiceCloneRetry) {
           savedVoiceClone = voiceCloneRetry
-          console.log('✅ Voz salva sem audio_urls (compatibilidade):', voiceCloneRetry.id)
         } else {
           // Fallback: se voiceClone não foi definido (não deveria acontecer)
           console.error('❌ voiceClone não foi definido após insert bem-sucedido')
@@ -578,7 +520,55 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      console.log('✅ Voz clonada salva com sucesso:', savedVoiceClone?.id)
+      
+      // COBRAR 50 CRÉDITOS pela criação da voz
+      try {
+        const { debitCredits } = await import('@/lib/db/credits')
+        
+        const creditsRequired = 50
+        const debitResult = await debitCredits(
+          userId,
+          creditsRequired,
+          'voice_creation', // Nova categoria para criação de voz
+          `Criação de voz clonada - ${savedVoiceClone.name || 'Voz sem nome'}`,
+          {
+            voice_clone_id: savedVoiceClone.id,
+            voice_id: savedVoiceClone.voice_id,
+            audio_count: audioFiles.length,
+          },
+          true // Permite saldo negativo
+        )
+
+        if (debitResult.success) {
+          
+          // Registrar atividade em user_activities
+          try {
+            await adminClient
+              .from('user_activities')
+              .insert({
+                user_id: userId,
+                type: 'VOICE_CREATE',
+                credits_used: creditsRequired,
+                metadata: {
+                  voice_clone_id: savedVoiceClone.id,
+                  voice_id: savedVoiceClone.voice_id,
+                  action: 'voice_created',
+                },
+              })
+              .catch((err) => {
+                console.warn('⚠️ Erro ao registrar atividade (não crítico):', err.message)
+              })
+          } catch (activityError) {
+            console.warn('⚠️ Erro ao registrar atividade (não crítico):', activityError)
+          }
+        } else {
+          console.warn(`⚠️ Erro ao debitar créditos: ${debitResult.error}`)
+          // Não bloquear a criação da voz se houver erro ao debitar créditos
+        }
+      } catch (creditError) {
+        console.error('❌ Erro ao debitar créditos pela criação da voz:', creditError)
+        // Não bloquear a criação da voz se houver erro ao debitar créditos
+      }
       
       return NextResponse.json({
         success: true,

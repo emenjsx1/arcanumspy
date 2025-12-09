@@ -229,14 +229,56 @@ export async function updatePaymentStatus(paymentId: string, status: Payment['st
       updateData.paid_at = paidAt
     }
 
+    // Buscar dados do pagamento antes de atualizar (para enviar email se necessário)
+    const { data: paymentBefore } = await adminClient
+      .from('payments')
+      .select(`
+        *,
+        user:profiles(id, name, email),
+        plan:plans(id, name, slug)
+      `)
+      .eq('id', paymentId)
+      .single()
+
     const { data, error } = await adminClient
       .from('payments')
       .update(updateData)
       .eq('id', paymentId)
-      .select()
+      .select(`
+        *,
+        user:profiles(id, name, email),
+        plan:plans(id, name, slug)
+      `)
       .single()
 
     if (error) throw error
+
+    // Se o status mudou para 'paid' e antes não estava 'paid', enviar email
+    if (status === 'paid' && paymentBefore?.status !== 'paid') {
+      const payment = data as any
+      const userEmail = payment.user?.email || paymentBefore?.user?.email
+      const userName = payment.user?.name || paymentBefore?.user?.name || 'Cliente'
+      const planName = payment.plan?.name || paymentBefore?.plan?.name || 'Plano'
+      
+      if (userEmail) {
+        // Enviar email de confirmação de pagamento (não bloqueia se falhar)
+        try {
+          const { sendPaymentSuccessEmail } = await import('@/lib/email')
+          await sendPaymentSuccessEmail({
+            name: userName,
+            userEmail: userEmail, // email do destinatário
+            amount: (payment.amount_cents || 0) / 100,
+            currency: payment.currency || 'BRL',
+            planName,
+            invoiceNumber: payment.invoice_number,
+            invoiceUrl: payment.invoice_url,
+            paymentDate: payment.paid_at || new Date().toISOString(),
+          })
+        } catch (emailError) {
+          console.warn('⚠️ Erro ao enviar email de pagamento (não crítico):', emailError)
+        }
+      }
+    }
 
     return data as Payment
   } catch (error) {

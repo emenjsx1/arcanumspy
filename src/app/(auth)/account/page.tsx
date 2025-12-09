@@ -17,9 +17,11 @@ import { supabase } from "@/lib/supabase/client"
 import { getCurrentUserSubscriptionWithPlan } from "@/lib/db/subscriptions"
 import { useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { User, Upload, X, Loader2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { useLocale } from "@/contexts/locale-context"
 
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
@@ -42,18 +44,20 @@ export default function AccountPage() {
   const { user, profile, refreshProfile } = useAuthStore()
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
+  const { locale, currency } = useLocale()
   const [isLoading, setIsLoading] = useState(false)
   const [currentSubscription, setCurrentSubscription] = useState<any>(null)
   const [loadingSubscription, setLoadingSubscription] = useState(true)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url || null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      name: profile?.name || "",
-      email: profile?.email || user?.email || "",
+      name: profile?.name || user?.user_metadata?.name || user?.email?.split('@')[0] || "",
+      email: user?.email || "",
     },
   })
 
@@ -62,11 +66,85 @@ export default function AccountPage() {
   })
 
   useEffect(() => {
+    // Garantir que o perfil seja carregado
+    const loadProfileData = async () => {
+      setProfileLoading(true)
+      
+      if (user) {
+        // Se não tem profile, carregar
+        if (!profile) {
+          await refreshProfile()
+        }
+        
+        // Aguardar um pouco e verificar se os dados foram carregados
+        setTimeout(async () => {
+          const state = useAuthStore.getState()
+          const hasEmail = state.user?.email
+          const hasName = state.profile?.name || state.user?.user_metadata?.name || state.user?.email?.split('@')[0]
+          
+          if (state.user && (!hasEmail || !hasName)) {
+            await refreshProfile()
+            
+            // Aguardar mais um pouco e verificar novamente
+            setTimeout(() => {
+              const updatedState = useAuthStore.getState()
+              setProfileLoading(false)
+            }, 500)
+          } else {
+            setProfileLoading(false)
+          }
+        }, 1000)
+      } else {
+        setProfileLoading(false)
+      }
+    }
+    loadProfileData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.id]) // Usar apenas IDs para evitar loops
+
+  useEffect(() => {
     loadSubscription()
     if (profile?.avatar_url) {
       setAvatarUrl(profile.avatar_url)
     }
   }, [profile])
+
+  // Atualizar valores do formulário quando profile ou user forem carregados
+  useEffect(() => {
+    // CORREÇÃO: Garantir que sempre temos email e nome, mesmo que o profile não esteja carregado
+    // Priorizar profile, mas usar user como fallback
+    let name = ""
+    let email = ""
+    
+    // Tentar primeiro do profile
+    if (profile?.name) {
+      name = profile.name
+    } else if (user?.email) {
+      // Se não tem nome no profile, usar email como fallback temporário
+      name = user.email.split('@')[0]
+    }
+    
+    if (user?.email) {
+      email = user.email
+    }
+    
+    // Se não tem do profile, tentar do user (sempre disponível)
+    if (!name && user) {
+      name = user.user_metadata?.name || user.email?.split('@')[0] || ""
+    }
+    
+    if (!email && user) {
+      email = user.email || ""
+    }
+    
+    // Sempre atualizar o formulário quando user ou profile mudarem
+    if (user || profile) {
+      profileForm.reset({
+        name: name || "",
+        email: email || "",
+      })
+    }
+  }, [profile, user, profileForm])
 
   const loadSubscription = async () => {
     try {
@@ -203,44 +281,59 @@ export default function AccountPage() {
   const onProfileSubmit = async (data: ProfileFormData) => {
     setIsLoading(true)
     try {
-      if (user) {
-        // Update email in auth.users if changed
-        if (data.email !== user.email) {
-          const { error: emailError } = await supabase.auth.updateUser({
-            email: data.email
-          })
-          
-          if (emailError) {
-            // Se o email já está em uso, mostrar erro específico
-            if (emailError.message.includes('already registered')) {
-              throw new Error('Este email já está em uso')
-            }
-            throw emailError
-          }
-        }
-
-        // Update profile in Supabase (name and email)
-        const { error } = await supabase
-          .from('profiles')
-          .update({ 
-            name: data.name,
-            email: data.email 
-          })
-          .eq('id', user.id)
-        
-        if (error) throw error
-        
-        // Refresh profile from store
-        await refreshProfile()
-        
-        toast({
-          title: "Perfil atualizado",
-          description: data.email !== user.email 
-            ? "Suas informações foram salvas. Verifique seu email para confirmar a alteração."
-            : "Suas informações foram salvas com sucesso",
-        })
+      if (!user) {
+        throw new Error('Usuário não autenticado')
       }
+
+      // CORREÇÃO: Obter email atual do user ou profile
+      const currentEmail = user.email || ""
+      
+      // Update email in auth.users if changed
+      if (data.email && data.email !== currentEmail) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: data.email
+        })
+        
+        if (emailError) {
+          // Se o email já está em uso, mostrar erro específico
+          if (emailError.message.includes('already registered')) {
+            throw new Error('Este email já está em uso')
+          }
+          throw emailError
+        }
+      }
+
+      // Update profile in Supabase (name and email)
+      // CORREÇÃO: Sempre atualizar email no profile, mesmo que não tenha mudado
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          name: data.name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+          email: data.email || user.email || ""
+        })
+        .eq('id', user.id)
+      
+      if (error) {
+        console.error('Erro ao atualizar perfil:', error)
+        throw error
+      }
+      
+      // Refresh profile from store
+      await refreshProfile()
+      
+      // Aguardar um pouco e recarregar novamente para garantir
+      setTimeout(async () => {
+        await refreshProfile()
+      }, 500)
+      
+      toast({
+        title: "Perfil atualizado",
+        description: data.email !== currentEmail 
+          ? "Suas informações foram salvas. Verifique seu email para confirmar a alteração."
+          : "Suas informações foram salvas com sucesso",
+      })
     } catch (error: any) {
+      console.error('Erro ao atualizar perfil:', error)
       toast({
         title: "Erro",
         description: error.message || "Ocorreu um erro ao atualizar o perfil",
@@ -273,7 +366,7 @@ export default function AccountPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <h1 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent break-words">
           Configurações da Conta
         </h1>
         <p className="text-muted-foreground text-lg">
@@ -369,34 +462,50 @@ export default function AccountPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome</Label>
-                  <Input
-                    id="name"
-                    {...profileForm.register("name")}
-                  />
+                  {profileLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Input
+                      id="name"
+                      {...profileForm.register("name")}
+                      placeholder={profile?.name || user?.user_metadata?.name || user?.email?.split('@')[0] || "Seu nome"}
+                    />
+                  )}
                   {profileForm.formState.errors.name && (
                     <p className="text-sm text-destructive">
                       {profileForm.formState.errors.name.message}
+                    </p>
+                  )}
+                  {!profileLoading && !profileForm.watch("name") && (
+                    <p className="text-xs text-muted-foreground">
+                      {profile?.name ? `Nome atual: ${profile.name}` : "Nome não definido"}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    {...profileForm.register("email")}
-                  />
+                  {profileLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Input
+                      id="email"
+                      type="email"
+                      {...profileForm.register("email")}
+                      placeholder={user?.email || "seu@email.com"}
+                    />
+                  )}
                   {profileForm.formState.errors.email && (
                     <p className="text-sm text-destructive">
                       {profileForm.formState.errors.email.message}
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Você pode alterar seu email. Um link de confirmação será enviado para o novo endereço.
+                    {user?.email 
+                      ? `Email atual: ${user?.email}` 
+                      : "Você pode alterar seu email. Um link de confirmação será enviado para o novo endereço."}
                   </p>
                 </div>
-
 
                 {/* Plano Atual */}
                 <div className="space-y-2 pt-4 border-t">
@@ -408,7 +517,7 @@ export default function AccountPage() {
                       <div>
                         <p className="font-semibold">{currentSubscription.plan.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(currentSubscription.plan.price_monthly_cents / 100)}/mês
+                          {new Intl.NumberFormat(locale, { style: 'currency', currency }).format(currentSubscription.plan.price_monthly_cents / 100)}/mês
                         </p>
                       </div>
                       <Link href="/billing">
@@ -449,20 +558,6 @@ export default function AccountPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Idioma</Label>
-                <Select defaultValue="pt-BR">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
-                    <SelectItem value="en-US">English (US)</SelectItem>
-                    <SelectItem value="es-ES">Español</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="space-y-2">
                 <Label>Tema</Label>
                 <Select value={theme} onValueChange={setTheme}>

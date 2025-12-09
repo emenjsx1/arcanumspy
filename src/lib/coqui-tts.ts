@@ -126,7 +126,6 @@ export async function generateTTS(
     // Criar arquivo temporário com o texto
     textFilePath = path.join(textFileDir, `text_${randomUUID()}.txt`)
     await fs.writeFile(textFilePath, normalizedText, 'utf-8')
-    console.log(`📄 Texto salvo em arquivo temporário: ${textFilePath}`)
   }
   
   // Construir argumentos na ordem correta
@@ -139,17 +138,11 @@ export async function generateTTS(
   // Adicionar texto via arquivo ou argumento direto
   if (useTextFile && textFilePath) {
     args.push('--text-file', textFilePath)
-    console.log(`📋 Usando --text-file: ${textFilePath}`)
   } else {
     args.push('--text', normalizedText)
-    console.log(`📋 Usando --text diretamente (${normalizedText.length} caracteres)`)
   }
   
   // Log dos argumentos para debug
-  console.log(`📋 Argumentos preparados (${args.length} itens):`)
-  console.log(`   [0] Script: ${args[0]}`)
-  console.log(`   [1] --output: ${args[1]}`)
-  console.log(`   [2] Output path: ${args[2]}`)
 
   if (options?.vocoder) {
     args.push('--vocoder', options.vocoder)
@@ -226,14 +219,6 @@ export async function generateTTS(
   }
   
   // Debug: mostrar exatamente o que será executado
-  console.log(`🐍 Executando Python:`)
-  console.log(`   Comando: ${pythonExec}`)
-  console.log(`   Total de argumentos: ${pythonArgs.length}`)
-  console.log(`   Script: ${pythonScript}`)
-  console.log(`   Texto (primeiros 50 chars): "${normalizedText.substring(0, 50)}..."`)
-  console.log(`   Output: ${absoluteOutputPath}`)
-  console.log(`   Modelo: ${options?.model || COQUI_TTS_MODEL}`)
-  console.log(`   Diretório: ${COQUI_TTS_WORKER_DIR}`)
   
   // Verificar se --output está nos argumentos
   const outputIndex = pythonArgs.indexOf('--output')
@@ -248,7 +233,6 @@ export async function generateTTS(
     console.error('❌ ERRO: --output está presente mas o valor está vazio!')
     throw new Error('Valor do argumento --output está vazio')
   }
-  console.log(`   ✅ --output encontrado: ${outputValue}`)
   
   // Verificar se --text ou --text-file está nos argumentos
   const textIndex = pythonArgs.indexOf('--text')
@@ -261,12 +245,10 @@ export async function generateTTS(
   
   if (textIndex !== -1 && textIndex !== pythonArgs.length - 1) {
     const textValue = pythonArgs[textIndex + 1]
-    console.log(`   ✅ --text encontrado (${textValue.length} caracteres)`)
   }
   
   if (textFileIndex !== -1 && textFileIndex !== pythonArgs.length - 1) {
     const textFileValue = pythonArgs[textFileIndex + 1]
-    console.log(`   ✅ --text-file encontrado: ${textFileValue}`)
   }
   
   return new Promise<Buffer>((resolve, reject) => {
@@ -337,7 +319,6 @@ export async function generateTTS(
       }
       
       if (stdout) {
-        console.log('✅ Coqui TTS stdout:', stdout)
       }
       
       // Verificar se o arquivo foi gerado
@@ -357,13 +338,11 @@ export async function generateTTS(
       // Ler o arquivo de áudio
       try {
         const audioBuffer = await fs.readFile(absoluteOutputPath)
-        console.log(`✅ Áudio gerado com sucesso: ${(audioBuffer.length / 1024).toFixed(2)} KB`)
         
         // Limpar arquivo temporário de texto se foi usado
         if (textFilePath) {
           try {
             await fs.unlink(textFilePath)
-            console.log(`🗑️ Arquivo temporário de texto removido: ${textFilePath}`)
           } catch (cleanupError) {
             console.warn(`⚠️ Não foi possível remover arquivo temporário: ${textFilePath}`)
           }
@@ -395,12 +374,7 @@ export async function generateTTS(
     })
   })
 
-  console.log('🎤 Gerando TTS com Coqui TTS...')
-  console.log(`   Texto: "${normalizedText.substring(0, 50)}${normalizedText.length > 50 ? '...' : ''}"`)
-  console.log(`   Modelo: ${options?.model || COQUI_TTS_MODEL}`)
-  console.log(`   Saída: ${absoluteOutputPath}`)
   if (useTextFile) {
-    console.log(`   📄 Usando arquivo temporário para texto`)
   }
   
   // A execução agora é feita via Promise acima
@@ -448,7 +422,6 @@ export async function cloneVoice(
     throw new Error(`Nenhum arquivo de referência válido encontrado. Tentados: ${audioPaths.join(', ')}`)
   }
   
-  console.log(`✅ ${existingPaths.length} arquivo(s) de referência válido(s) encontrado(s)`)
   
   // Passar como string com vírgulas se múltiplos (formato esperado pelo Python)
   // ou string única se apenas um
@@ -498,7 +471,6 @@ export async function listAvailableModels(): Promise<string[]> {
     pythonArgs = [pythonScript]
   }
   
-  console.log(`🐍 Listando modelos Python: ${pythonExec} ${pythonArgs.join(' ')}`)
   
   return new Promise<string[]>((resolve, reject) => {
     const pythonProcess = spawn(pythonExec, pythonArgs, {

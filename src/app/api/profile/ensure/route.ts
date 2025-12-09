@@ -23,10 +23,20 @@ export async function POST(request: Request) {
     
     // If that fails, try from Authorization header
     if (authError || !user) {
-      const authHeader = request.headers.get('Authorization')
+      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7)
-        const { data: { user: userFromToken }, error: tokenError } = await supabase.auth.getUser(token)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
+        const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        })
+        const { data: { user: userFromToken }, error: tokenError } = await tempClient.auth.getUser(token)
         if (!tokenError && userFromToken) {
           user = userFromToken
           authError = null
@@ -40,11 +50,6 @@ export async function POST(request: Request) {
         { status: 401 }
       )
     }
-
-    console.log('🔄 [Profile Ensure] Garantindo perfil para usuário:', {
-      id: user.id,
-      email: user.email
-    })
 
     // Use admin client to bypass RLS
     let adminClient
@@ -67,13 +72,6 @@ export async function POST(request: Request) {
     }
 
     if (existingProfile) {
-      console.log('✅ [Profile Ensure] Perfil encontrado:', {
-        id: existingProfile.id,
-        name: existingProfile.name,
-        role: existingProfile.role,
-        email: existingProfile.email
-      })
-      
       // Profile exists, update email and name if needed
       const updates: any = {}
       
@@ -90,13 +88,12 @@ export async function POST(request: Request) {
       const adminEmails = [
         'emenjoseph7+conta2@gmail.com',
         'emenmurromua@gmail.com', // Adicionar outros emails admin aqui
-        'admin@swipevault.com'
+        'admin@arcanumspy.com'
       ]
       
       // SEMPRE verificar e atualizar role se necessário (mesmo que não haja outros updates)
       if (user.email && adminEmails.includes(user.email.toLowerCase())) {
         if (existingProfile.role !== 'admin') {
-          console.log('🔑 [Profile Ensure] Definindo usuário como admin:', user.email)
           updates.role = 'admin'
         }
       }
@@ -138,10 +135,9 @@ export async function POST(request: Request) {
       const adminEmails = [
         'emenjoseph7+conta2@gmail.com',
         'emenmurromua@gmail.com', // Adicionar outros emails admin aqui
-        'admin@swipevault.com'
+        'admin@arcanumspy.com'
       ]
       const role = (user.email && adminEmails.includes(user.email.toLowerCase())) ? 'admin' : 'user'
-      console.log('🔑 [Profile Ensure] Criando perfil com role:', role, 'para:', user.email)
       
       const { data: newProfile, error: createError } = await createClient
         .from('profiles')
@@ -168,10 +164,9 @@ export async function POST(request: Request) {
               const adminEmails = [
                 'emenjoseph7+conta2@gmail.com',
                 'emenmurromua@gmail.com',
-                'admin@swipevault.com'
+                'admin@arcanumspy.com'
               ]
               if (user.email && adminEmails.includes(user.email.toLowerCase())) {
-                console.log('🔑 [Profile Ensure] Atualizando role para admin via RPC')
                 await supabase
                   .from('profiles')
                   .update({ role: 'admin' })

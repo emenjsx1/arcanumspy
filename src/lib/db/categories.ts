@@ -3,38 +3,65 @@ import { Database } from '@/types/database'
 
 type Category = Database['public']['Tables']['categories']['Row']
 
-// Cache simples em memória (resetado a cada 5 minutos)
+// OTIMIZAÇÃO: Cache mais agressivo (15 minutos) + localStorage
 let categoriesCache: { data: Category[]; timestamp: number } | null = null
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
+const CACHE_DURATION = 15 * 60 * 1000 // 15 minutos (categorias mudam raramente)
+const CACHE_KEY = 'categories_cache'
+const CACHE_TIMESTAMP_KEY = 'categories_cache_timestamp'
+
+// CORREÇÃO: Carregar cache do localStorage apenas quando necessário (não no nível do módulo)
+// Isso evita problemas de SSR e hydration errors
+function loadCacheFromStorage() {
+  if (typeof window === 'undefined') return null
+  
+  try {
+    const cached = localStorage.getItem(CACHE_KEY)
+    const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY)
+    if (cached && timestamp) {
+      const parsedTimestamp = parseInt(timestamp, 10)
+      if (Date.now() - parsedTimestamp < CACHE_DURATION) {
+        return {
+          data: JSON.parse(cached),
+          timestamp: parsedTimestamp
+        }
+      }
+    }
+  } catch (e) {
+    // Ignorar erros de parse
+  }
+  return null
+}
 
 export async function getAllCategories(): Promise<Category[]> {
-  const startTime = Date.now()
-  const timeout = 5000 // Aumentar para 5 segundos
-  
-  // Verificar cache
+  // CORREÇÃO CRÍTICA: Garantir que nunca executa durante SSR/build
+  // Esta função só deve ser chamada no cliente, mas adicionamos proteção extra
+  if (typeof window === 'undefined') {
+    console.warn('⚠️ [getAllCategories] Tentativa de execução durante SSR - retornando array vazio')
+    return []
+  }
+
+  // OTIMIZAÇÃO: Verificar cache em memória primeiro
   if (categoriesCache && Date.now() - categoriesCache.timestamp < CACHE_DURATION) {
-    console.log('✅ [getAllCategories] Usando cache')
     return categoriesCache.data
   }
   
-  console.log('⏱️ [getAllCategories] Iniciando busca...')
+  // CORREÇÃO: Carregar do localStorage apenas quando necessário (não no nível do módulo)
+  const storageCache = loadCacheFromStorage()
+  if (storageCache) {
+    // Atualizar cache em memória
+    categoriesCache = storageCache
+    return storageCache.data
+  }
   
+  // Se não tem cache válido, buscar do banco
   try {
-    // Verificar autenticação primeiro
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError) {
-      console.warn('⚠️ [getAllCategories] Erro de autenticação:', authError.message)
-    } else {
-      console.log(`✅ [getAllCategories] Usuário autenticado: ${user?.id || 'N/A'}`)
-    }
-    
+    const timeout = 3000 // Reduzir timeout para 3s
     const query = supabase
       .from('categories')
       .select('*')
       .order('name', { ascending: true })
-      .limit(100) // Limite de segurança
+      .limit(100)
     
-    console.log('🔍 [getAllCategories] Executando query...')
     const { data, error } = await Promise.race([
       query,
       new Promise<{ data: null; error: { message: string } }>(resolve => 
@@ -44,32 +71,34 @@ export async function getAllCategories(): Promise<Category[]> {
 
     if (error) {
       if (error.message === 'Timeout') {
-        console.warn('⚠️ [getAllCategories] Timeout após 5s')
         // Retornar cache antigo se disponível
         return categoriesCache?.data || []
       }
-      console.error('❌ [getAllCategories] Erro:', error)
-      console.error('   Código:', error.code)
-      console.error('   Mensagem:', error.message)
-      console.error('   Detalhes:', error.details)
+      // Em caso de erro, retornar cache se disponível
       return categoriesCache?.data || []
     }
 
-    // Atualizar cache
+    // Atualizar cache em memória e localStorage
+    const timestamp = Date.now()
     categoriesCache = {
       data: data || [],
-      timestamp: Date.now()
+      timestamp
+    }
+    
+    // Salvar no localStorage para persistir entre sessões
+    // Já verificamos window acima, mas verificamos novamente por segurança
+    if (typeof window !== 'undefined' && data) {
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+        localStorage.setItem(CACHE_TIMESTAMP_KEY, timestamp.toString())
+      } catch (e) {
+        // Ignorar erros de localStorage (pode estar cheio)
+      }
     }
 
-    const totalTime = Date.now() - startTime
-    console.log(`✅ [getAllCategories] ${data?.length || 0} categorias encontradas em ${totalTime}ms`)
-    if (data && data.length > 0) {
-      console.log(`   Primeiras categorias: ${data.slice(0, 3).map(c => c.name).join(', ')}`)
-    }
     return data || []
   } catch (error: any) {
-    console.error('❌ [getAllCategories] Erro geral:', error)
-    console.error('   Stack:', error.stack)
+    // Em caso de erro, retornar cache se disponível
     return categoriesCache?.data || []
   }
 }
@@ -107,5 +136,4 @@ export async function getCategoryStats(categoryId: string) {
     return { offerCount: 0 }
   }
 }
-
 

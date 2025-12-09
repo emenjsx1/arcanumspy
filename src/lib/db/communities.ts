@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase/client'
 import { Database } from '@/types/database'
+// CORREÇÃO: Import dinâmico para evitar erro de build (next/headers não pode ser usado em Client Components)
+// As funções de créditos serão importadas dinamicamente apenas quando necessário
 
 type Community = Database['public']['Tables']['communities']['Row']
 type CommunityInsert = Database['public']['Tables']['communities']['Insert']
@@ -7,6 +9,7 @@ type CommunityUpdate = Database['public']['Tables']['communities']['Update']
 
 export interface CommunityWithStats extends Community {
   member_count?: number
+  posts_count?: number
 }
 
 /**
@@ -36,33 +39,43 @@ export async function getActiveCommunitiesForUser(): Promise<CommunityWithStats[
       return []
     }
 
-    // Get member counts for each community (com tratamento de erro individual)
+    // Get member counts and posts counts for each community (com tratamento de erro individual)
     const communitiesWithStats = await Promise.all(
       communities.map(async (community) => {
         try {
-          const { count, error: countError } = await supabase
-            .from('community_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('community_id', community.id)
+          const [memberCountResult, postsCountResult] = await Promise.all([
+            supabase
+              .from('community_members')
+              .select('*', { count: 'exact', head: true })
+              .eq('community_id', community.id),
+            supabase
+              .from('community_posts')
+              .select('*', { count: 'exact', head: true })
+              .eq('community_id', community.id)
+          ])
 
           // Se houver erro ao contar (tabela não existe), usar 0
-          if (countError) {
-            console.warn(`⚠️ [getActiveCommunitiesForUser] Erro ao contar membros:`, countError.message)
-            return {
-              ...community,
-              member_count: 0,
-            } as CommunityWithStats
+          const memberCount = memberCountResult.error ? 0 : (memberCountResult.count || 0)
+          const postsCount = postsCountResult.error ? 0 : (postsCountResult.count || 0)
+
+          if (memberCountResult.error) {
+            console.warn(`⚠️ [getActiveCommunitiesForUser] Erro ao contar membros:`, memberCountResult.error.message)
+          }
+          if (postsCountResult.error) {
+            console.warn(`⚠️ [getActiveCommunitiesForUser] Erro ao contar posts:`, postsCountResult.error.message)
           }
 
           return {
             ...community,
-            member_count: count || 0,
+            member_count: memberCount,
+            posts_count: postsCount,
           } as CommunityWithStats
         } catch (memberError: any) {
           console.warn(`⚠️ [getActiveCommunitiesForUser] Erro ao processar comunidade ${community.id}:`, memberError.message)
           return {
             ...community,
             member_count: 0,
+            posts_count: 0,
           } as CommunityWithStats
         }
       })
@@ -97,37 +110,21 @@ export async function joinCommunity(userId: string, communityId: string): Promis
       throw new Error('Esta comunidade não está ativa')
     }
 
-    // Se a comunidade for paga, verificar saldo e debitar créditos via API
+    // Se a comunidade for paga, verificar saldo e debitar créditos
     if (community.is_paid) {
       const creditsRequired = 120 // 120 créditos por mês
       
-      // Verificar saldo via API (evita importar server client)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        return {
-          success: false,
-          error: 'Você precisa estar autenticado para entrar em uma comunidade paga'
-        }
-      }
-
-      // Buscar saldo via API
-      const balanceResponse = await fetch('/api/credits', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        credentials: 'include',
-      })
-
-      if (!balanceResponse.ok) {
-        return {
-          success: false,
-          error: 'Erro ao verificar saldo de créditos'
-        }
-      }
-
-      const balanceData = await balanceResponse.json()
-      const balance = balanceData.balance?.balance || balanceData.balance || 0
+      // CORREÇÃO: Import dinâmico usando webpackIgnore para evitar análise durante build
+      // Isso garante que o módulo só seja carregado em runtime, não durante o build
+      const creditsModule = await import(
+        /* webpackIgnore: true */
+        '@/lib/db/credits'
+      )
+      const { getUserCreditBalance, debitCredits } = creditsModule
+      
+      // Verificar saldo usando função server-side
+      const balanceData = await getUserCreditBalance(userId)
+      const balance = balanceData?.balance || 0
 
       if (balance < creditsRequired) {
         return {
@@ -154,31 +151,23 @@ export async function joinCommunity(userId: string, communityId: string): Promis
       })()
 
       if (shouldCharge) {
-        // Debitar créditos via API (evita importar server client)
-        const debitResponse = await fetch('/api/credits/debit', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            amount: creditsRequired,
-            category: 'offer_view', // Usar categoria válida (a API aceita qualquer string, mas usar uma válida)
-            description: `Acesso à comunidade por 1 mês`,
-            metadata: {
-              community_id: communityId,
-              period_days: 30,
-              type: 'community_access',
-            },
-          }),
-        })
+        // Debitar créditos usando função server-side
+        const debitResult = await debitCredits(
+          userId,
+          creditsRequired,
+          'offer_view',
+          `Acesso à comunidade por 1 mês`,
+          {
+            community_id: communityId,
+            period_days: 30,
+            type: 'community_access',
+          }
+        )
 
-        if (!debitResponse.ok) {
-          const errorData = await debitResponse.json()
+        if (!debitResult.success) {
           return {
             success: false,
-            error: errorData.error || 'Erro ao debitar créditos'
+            error: debitResult.error || 'Erro ao debitar créditos'
           }
         }
       }

@@ -39,7 +39,6 @@ export async function enqueueJob(name: string, payload: any): Promise<Job> {
   
   jobQueue.set(jobId, job)
   
-  console.log(`📋 Job enfileirado: ${name} (${jobId})`)
   
   // Em produção, aqui você faria:
   // - Adicionar ao Redis/Bull

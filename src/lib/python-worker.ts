@@ -46,7 +46,6 @@ export async function preprocessAndExtractEmbedding(
         throw new Error('Data URL inválida')
       }
       audioBuffer = Buffer.from(base64Match[1], 'base64')
-      console.log('   ✅ Áudio extraído de data URL (modo desenvolvimento)')
     } else {
       // Baixar áudio de URL normal
       const response = await fetch(audioUrl)
@@ -73,7 +72,6 @@ export async function preprocessAndExtractEmbedding(
     const scriptPath = path.join(WORKERS_DIR, 'preprocess_and_embed.py')
     const command = `${PYTHON_CMD} "${scriptPath}" --input "${tmpInputPath}" --out "${tmpOutputPath}" --target-sr 24000`
 
-    console.log(`🐍 Executando pipeline Python: ${command}`)
     
     const { stdout, stderr } = await execAsync(command, {
       cwd: WORKERS_DIR,
@@ -84,7 +82,6 @@ export async function preprocessAndExtractEmbedding(
       console.warn(`⚠️ Python stderr: ${stderr}`)
     }
 
-    console.log(`✅ Pipeline Python concluído: ${stdout}`)
 
     // Ler embedding JSON
     const embeddingData = JSON.parse(fs.readFileSync(embeddingPath, 'utf-8'))
@@ -125,7 +122,6 @@ export async function processMultipleAudios(
 
   // Processar cada áudio
   for (let i = 0; i < audioUrls.length; i++) {
-    console.log(`📝 Processando áudio ${i + 1}/${audioUrls.length}`)
     const result = await preprocessAndExtractEmbedding(audioUrls[i], outputDir)
     processedAudios.push(result)
   }
@@ -190,7 +186,6 @@ export async function validateGeneration(
     const scriptPath = path.join(WORKERS_DIR, 'validate_generation.py')
     const command = `${PYTHON_CMD} "${scriptPath}" --reference "${referenceEmbeddingPath}" --generated "${tmpGeneratedPath}" --threshold ${threshold}`
 
-    console.log(`🔍 Validando com Python: ${command}`)
 
     const { stdout, stderr } = await execAsync(command, {
       cwd: WORKERS_DIR,

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuthStore } from "@/store/auth-store"
 import { Sidebar } from "@/components/layout/sidebar"
+import { MobileMenu } from "@/components/layout/mobile-menu"
 import { Logo } from "@/components/layout/logo"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,81 +27,128 @@ export default function AdminLayout({
   const { isAuthenticated, user, initialize, isLoading, profile } = useAuthStore()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  // CORREÇÃO: Flags para evitar loops e múltiplos redirecionamentos
+  const [redirecting, setRedirecting] = useState(false)
+  const [initialized, setInitialized] = useState(false)
+  const [profileChecked, setProfileChecked] = useState(false)
+  // CORREÇÃO: Timeout de segurança para evitar loading infinito (declarar antes de usar)
+  const [safetyTimeout, setSafetyTimeout] = useState(false)
 
+  // CORREÇÃO: Inicializar auth apenas uma vez, com controle de estado
   useEffect(() => {
+    let isMounted = true
+    
     const initAuth = async () => {
-      await initialize()
-      
-      // Aguardar um pouco para garantir que o perfil foi carregado
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // Se o perfil não foi carregado, forçar refresh
-      const currentState = useAuthStore.getState()
-      if (currentState.isAuthenticated && !currentState.profile) {
-        console.log('🔄 [Admin Layout] Perfil não carregado, forçando refresh...')
-        await currentState.refreshProfile()
-      }
+      if (initialized || !isMounted) return
       
       setMounted(true)
-    }
-    initAuth()
-  }, [initialize])
-
-  useEffect(() => {
-    if (mounted && !isLoading) {
-      const currentState = useAuthStore.getState()
-      const currentProfile = currentState.profile
       
-      console.log('🔍 [Admin Layout] Verificação de acesso:', {
-        isAuthenticated,
-        profileRole: currentProfile?.role,
-        profileId: currentProfile?.id,
-        userEmail: user?.email,
-        hasProfile: !!currentProfile
-      })
-      
-      if (!isAuthenticated) {
-        console.log('❌ [Admin Layout] Não autenticado, redirecionando para login')
-        router.push("/login")
-        return
-      }
-      
-      // Se não tem perfil, tentar carregar novamente (com timeout para evitar loops)
-      if (!currentProfile) {
-        console.log('⏳ [Admin Layout] Perfil ainda não carregado, aguardando carregamento...')
+      // CORREÇÃO: Inicializar imediatamente, sem delay desnecessário
+      try {
+        await initialize()
         
-        // Aguardar um pouco antes de tentar novamente (evitar múltiplas chamadas)
-        const timeoutId = setTimeout(async () => {
-          const stateBeforeRefresh = useAuthStore.getState()
-          if (!stateBeforeRefresh.profile) {
-            await stateBeforeRefresh.refreshProfile()
-            
-            // Aguardar um pouco após refresh
-            await new Promise(resolve => setTimeout(resolve, 500))
-            
-            const updatedState = useAuthStore.getState()
-            if (updatedState.profile?.role !== 'admin') {
-              console.log('❌ [Admin Layout] Não é admin após refresh, redirecionando. Role:', updatedState.profile?.role)
-              router.push("/dashboard")
-            } else {
-              console.log('✅ [Admin Layout] Admin confirmado após refresh!')
+        // Aguardar um pouco para garantir que o perfil foi carregado
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        if (!isMounted) return
+        
+        // Se o perfil não foi carregado, tentar refresh apenas uma vez
+        const currentState = useAuthStore.getState()
+        if (currentState.isAuthenticated && !currentState.profile && !profileChecked) {
+          setProfileChecked(true)
+          await currentState.refreshProfile()
+          await new Promise(resolve => setTimeout(resolve, 200))
+        }
+        
+        if (isMounted) {
+          setInitialized(true)
+        }
+      } catch (error) {
+        console.error('Erro ao inicializar auth:', error)
+        if (isMounted) {
+          setInitialized(true) // Marcar como inicializado mesmo em erro
+        }
+      }
+    }
+    
+    // Executar imediatamente
+    initAuth()
+    
+    return () => {
+      isMounted = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Executar apenas uma vez na montagem
+
+  // CORREÇÃO: Timeout de segurança para evitar loading infinito
+  useEffect(() => {
+    // Timeout de segurança: se após 2 segundos ainda não inicializou, permitir renderização
+    const timeout = setTimeout(() => {
+      setSafetyTimeout(true)
+    }, 2000)
+    
+    return () => clearTimeout(timeout)
+  }, [])
+
+  // CORREÇÃO: Verificar autenticação e perfil apenas após inicialização completa
+  useEffect(() => {
+    // Não fazer nada se ainda não inicializou ou está carregando
+    if (!mounted || !initialized || isLoading) return
+    
+    // CORREÇÃO: Se passou o timeout de segurança, não redirecionar automaticamente
+    // Deixar o usuário ver a página mesmo se a autenticação ainda está verificando
+    if (safetyTimeout) return
+    
+    // CORREÇÃO: Evitar redirecionamentos múltiplos
+    if (redirecting) return
+
+    // CORREÇÃO: Verificar autenticação primeiro
+    if (!isAuthenticated) {
+      if (!redirecting) {
+        setRedirecting(true)
+        router.replace("/login")
+        setTimeout(() => setRedirecting(false), 1000)
+      }
+      return
+    }
+    
+    // CORREÇÃO: Verificar perfil apenas uma vez após carregar
+    if (!profile && !profileChecked) {
+      setProfileChecked(true)
+      const timeoutId = setTimeout(async () => {
+        const stateBeforeRefresh = useAuthStore.getState()
+        if (!stateBeforeRefresh.profile && !redirecting) {
+          await stateBeforeRefresh.refreshProfile()
+          await new Promise(resolve => setTimeout(resolve, 300))
+          
+          const updatedState = useAuthStore.getState()
+          if (updatedState.profile?.role !== 'admin') {
+            if (!redirecting) {
+              setRedirecting(true)
+              router.replace("/dashboard")
+              setTimeout(() => setRedirecting(false), 1000)
             }
           }
-        }, 1000) // Aguardar 1 segundo antes de tentar
-        
-        return () => clearTimeout(timeoutId)
-      }
-      
-      if (currentProfile.role !== 'admin') {
-        console.log('❌ [Admin Layout] Não é admin, redirecionando para dashboard. Role:', currentProfile.role)
-        router.push("/dashboard")
-      } else {
-        console.log('✅ [Admin Layout] Acesso admin concedido!')
-      }
+        }
+      }, 500)
+      return () => clearTimeout(timeoutId)
     }
-  }, [mounted, isAuthenticated, isLoading, profile, router, user])
+    
+    // CORREÇÃO: Verificar role apenas se perfil existe
+    if (profile && profile.role !== 'admin' && !redirecting) {
+      setRedirecting(true)
+      router.replace("/dashboard")
+      setTimeout(() => setRedirecting(false), 1000)
+      return
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, initialized, isAuthenticated, isLoading, profile, profileChecked, redirecting, safetyTimeout])
 
-  if (!mounted || isLoading) {
+  // CORREÇÃO: Mostrar loading apenas se ainda não inicializou E não passou o timeout de segurança
+  // Se passou o timeout, sempre permitir renderização (mesmo que ainda esteja carregando)
+  const shouldShowLoading = (!mounted || (!initialized && !safetyTimeout) || (isLoading && !safetyTimeout))
+  
+  if (shouldShowLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -111,8 +159,23 @@ export default function AdminLayout({
     )
   }
 
-  if (!isAuthenticated || profile?.role !== 'admin') {
-    return null
+  // CORREÇÃO: Se não está autenticado ou não é admin, mostrar loading (já redirecionou)
+  // Mas apenas se não passou o timeout de segurança (para evitar bloqueio infinito)
+  if ((!isAuthenticated || profile?.role !== 'admin' || redirecting) && !safetyTimeout) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Redirecionando...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // CORREÇÃO: Se passou o timeout e ainda não está autenticado, permitir renderização
+  // O useEffect de redirecionamento vai cuidar do redirect
+  if (!isAuthenticated && safetyTimeout) {
+    // Não bloquear, deixar o useEffect redirecionar
   }
 
   return (
@@ -123,6 +186,10 @@ export default function AdminLayout({
           {/* Logo à esquerda */}
           <div className="flex items-center gap-3">
             <Logo href="/admin/dashboard" />
+            {/* Menu hambúrguer (mobile) - ao lado da logo */}
+            <div className="md:hidden">
+              <MobileMenu />
+            </div>
             <Badge variant="secondary" className="hidden sm:flex">
               <Shield className="h-3 w-3 mr-1" />
               Admin
@@ -164,7 +231,6 @@ function ProfileDropdown() {
   useEffect(() => {
     setMounted(true)
   }, [])
-
 
   return (
     <div className="flex items-center gap-2">

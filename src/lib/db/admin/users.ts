@@ -27,7 +27,6 @@ export interface UserFullInfoForAdmin {
 
 export async function getAllUsers(): Promise<UserWithSubscription[]> {
   const startTime = Date.now()
-  console.log('⏱️ [Admin All Users] Iniciando busca de todos os usuários...')
   
   try {
     const { createAdminClient } = await import('@/lib/supabase/admin')
@@ -79,7 +78,6 @@ export async function getAllUsers(): Promise<UserWithSubscription[]> {
         )
 
         const totalTime = Date.now() - startTime
-        console.log(`✅ [Admin All Users] ${usersWithEmail.length} usuários carregados em ${totalTime}ms (sem subscriptions)`)
         return usersWithEmail
       }
       throw error
@@ -105,7 +103,6 @@ export async function getAllUsers(): Promise<UserWithSubscription[]> {
     )
 
     const totalTime = Date.now() - startTime
-    console.log(`✅ [Admin All Users] ${usersWithEmail.length} usuários carregados em ${totalTime}ms`)
 
     return usersWithEmail
   } catch (error) {
@@ -116,44 +113,35 @@ export async function getAllUsers(): Promise<UserWithSubscription[]> {
 
 export async function getRecentUsers(limit = 10): Promise<UserWithSubscription[]> {
   const startTime = Date.now()
-  console.log('⏱️ [Admin Recent Users] Iniciando busca de usuários recentes...')
   
   try {
-    const { createAdminClient } = await import('@/lib/supabase/admin')
-    const adminClient = createAdminClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      console.warn('⚠️ [Admin Recent Users] Sem sessão')
+      return []
+    }
 
-    // Buscar perfis recentes
-    const { data: profiles, error } = await adminClient
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit)
+    const response = await fetch(`/api/admin/users?limit=${limit}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    })
 
-    if (error) throw error
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
+    }
 
-    // Buscar emails de todos os usuários em paralelo
-    const usersWithEmail = await Promise.all(
-      (profiles || []).map(async (profile) => {
-        try {
-          const { data: authUser } = await adminClient.auth.admin.getUserById(profile.id)
-          return {
-            ...profile,
-            email: authUser?.user?.email || null,
-          } as UserWithSubscription
-        } catch (emailError) {
-          console.warn(`⚠️ [Admin Recent Users] Erro ao buscar email para usuário ${profile.id}:`, emailError)
-          return {
-            ...profile,
-            email: null,
-          } as UserWithSubscription
-        }
-      })
-    )
+    const data = await response.json()
+    const users = (data.users || []).slice(0, limit) as UserWithSubscription[]
 
     const totalTime = Date.now() - startTime
-    console.log(`✅ [Admin Recent Users] ${usersWithEmail.length} usuários carregados em ${totalTime}ms`)
 
-    return usersWithEmail
+    return users
   } catch (error) {
     console.error('❌ [Admin Recent Users] Erro ao buscar usuários:', error)
     return []

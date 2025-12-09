@@ -117,7 +117,7 @@ export default function ModelosCopyPage() {
   return (
     <div className="max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Modelos de Copy</h1>
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold break-words">Modelos de Copy</h1>
         <p className="text-muted-foreground mt-1">
           Conheça os diferentes modelos de copywriting e quando usar cada um
         </p>

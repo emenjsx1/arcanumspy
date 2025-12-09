@@ -83,12 +83,10 @@ function getSimilarityErrorMessage(similarity: number): {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 POST /api/voices/generate-tts - Iniciando...')
   
   try {
     // 🔐 AUTENTICAÇÃO OBRIGATÓRIA - PRIMEIRA COISA A VERIFICAR
     // ❌ Se não estiver autenticado, retorna erro IMEDIATAMENTE (antes de processar qualquer coisa)
-    console.log('🔐 Verificando autenticação do usuário...')
     
     const supabase = await createClient()
     
@@ -102,15 +100,12 @@ export async function POST(request: NextRequest) {
     authError = getUserResult.error
     
     if (user) {
-      console.log('✅ Usuário autenticado via cookies:', user.id)
     } else {
-      console.log('⚠️ Usuário não encontrado via cookies')
       
       // Se não funcionou, tenta ler do header Authorization
       const authHeader = request.headers.get('authorization')
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.replace('Bearer ', '')
-        console.log('   Tentando validar token do header Authorization...')
         
         try {
           // Validar token diretamente com a API do Supabase
@@ -132,7 +127,6 @@ export async function POST(request: NextRequest) {
             const userData = await validateResponse.json()
             if (userData && userData.id) {
               user = userData
-              console.log('✅ Usuário autenticado via token:', user.id)
             } else {
               authError = { message: 'Token inválido: resposta vazia' }
             }
@@ -140,11 +134,9 @@ export async function POST(request: NextRequest) {
             authError = { message: `Token inválido: ${validateResponse.status}` }
           }
         } catch (tokenError: any) {
-          console.log('   ❌ Erro ao validar token:', tokenError.message)
           authError = tokenError
         }
       } else {
-        console.log('   ⚠️ Header Authorization não encontrado')
       }
     }
     
@@ -162,8 +154,6 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    console.log('✅ Usuário autenticado:', user.id)
-    console.log('📥 Lendo dados da requisição...')
 
     // Agora sim, ler o body da requisição (após autenticação confirmada)
     const body = await request.json()
@@ -316,12 +306,9 @@ export async function POST(request: NextRequest) {
     )
     
     if (isFishReferenceId) {
-      console.log(`✅ Usando reference_id da Fish API: ${voiceCloneVoiceId}`)
       // Não precisa de reference_audio quando usar reference_id válido
       referenceAudioBuffers = []
     } else {
-      console.log('⚠️ voice_id não é reference_id válido da Fish API, usando clonagem instantânea com reference_audio')
-      console.log(`   - Voice ID: ${voiceCloneVoiceId} (UUID local, não é reference_id da Fish)`)
     }
     
     // 🚨 IMPORTANTE: Text-to-Speech (TTS) usando voz já clonada
@@ -330,11 +317,6 @@ export async function POST(request: NextRequest) {
     const finalLanguage = language || 'pt' // Padrão: pt (português)
     const finalSpeed = speed || 1.0 // Velocidade: 0.5-2.0
     
-    console.log(`🎯 Configuração de geração TTS (Text-to-Speech):`)
-    console.log(`   ℹ️ Usando voz já clonada para gerar narração (não é clonagem nova)`)
-    console.log(`   - Language: ${finalLanguage} (preserva sotaque)`)
-    console.log(`   - Speed: ${finalSpeed}x`)
-    console.log(`   - Áudios de referência da voz clonada: ${referenceAudioBuffers.length}`)
     
     // Salvar primeiro áudio de referência temporariamente para usar com Coqui TTS
     const fs = require('fs')
@@ -360,7 +342,6 @@ export async function POST(request: NextRequest) {
         // Salvar buffer temporariamente
         fs.writeFileSync(referenceFilePath, referenceBuffer)
         referenceFilePaths.push(referenceFilePath)
-        console.log(`✅ Áudio de referência ${i + 1}/${Math.min(referenceAudioBuffers.length, 3)} salvo: ${referenceFilePath}`)
       }
       
       // XTTS v2 aceita múltiplos arquivos - usar todos para melhor qualidade
@@ -368,7 +349,6 @@ export async function POST(request: NextRequest) {
         ? referenceFilePaths.join(',') // Múltiplos arquivos separados por vírgula
         : referenceFilePaths[0] // Um único arquivo
       
-      console.log(`🎯 Usando ${referenceFilePaths.length} áudio(s) de referência para XTTS v2`)
     }
     
     // Gerar TTS com Coqui TTS usando XTTS v2 para melhor qualidade
@@ -396,12 +376,9 @@ export async function POST(request: NextRequest) {
     
     if (referenceAudioPath) {
       // 🎯 TTS usando voz já clonada (não é clonagem nova, é geração de narração)
-      console.log(`🎤 Gerando narração TTS usando voz clonada existente...`)
-      console.log(`   ℹ️ Usando áudio de referência da voz clonada para gerar narração`)
       audioBuffer = await cloneVoice(text, referenceAudioPath, coquiOptions)
     } else {
       // TTS normal sem voz clonada
-      console.log(`🎤 Gerando TTS normal (sem voz clonada)...`)
       audioBuffer = await generateTTS(text, coquiOptions)
     }
     
@@ -454,19 +431,16 @@ export async function POST(request: NextRequest) {
       // 1. Tentar buscar do metadata do voiceClone
       if (voiceClone.metadata && typeof voiceClone.metadata === 'object' && 'embedding_url' in voiceClone.metadata) {
         embeddingUrl = (voiceClone.metadata as any).embedding_url
-        console.log(`✅ Embedding encontrado no banco de dados: ${embeddingUrl}`)
       }
       
       // 2. Fallback: buscar nos audioUrls (compatibilidade com vozes antigas)
       if (!embeddingUrl) {
         embeddingUrl = audioUrls.find(url => url && typeof url === 'string' && url.includes('voice_embedding.json')) || null
         if (embeddingUrl) {
-          console.log(`⚠️ Embedding encontrado nos audioUrls (método antigo): ${embeddingUrl}`)
         }
       }
       
       if (embeddingUrl) {
-        console.log('🔍 Usando validação Python profissional...')
         const { validateGeneration } = await import('@/lib/python-worker')
         
         // Salvar áudio gerado temporariamente para validação
@@ -512,7 +486,6 @@ export async function POST(request: NextRequest) {
             similarity: similarity, // Incluir similarity explicitamente
           }
           
-          console.log(`✅ Validação Python: similaridade ${(similarity * 100).toFixed(1)}%`)
           
           // Limpar arquivos temporários
           try {
@@ -524,7 +497,6 @@ export async function POST(request: NextRequest) {
         }
       } else {
         // Fallback: validação básica
-        console.log('⚠️ Embedding não encontrado, usando validação básica...')
         const validationReferenceAudio = referenceAudioBuffers[0]
         validation = await validateVoiceConsistency(
           validationReferenceAudio,
@@ -567,7 +539,6 @@ export async function POST(request: NextRequest) {
       console.warn(`   ℹ️ Áudio será retornado mesmo assim (Coqui TTS gerou com sucesso)`)
       console.warn(`   ℹ️ Validação por embeddings é apenas informativa, não bloqueia geração`)
     } else {
-      console.log(`✅ [DIAGNÓSTICO] Similaridade: ${similarityPercent}%`)
     }
     
     // Sempre continuar - validação é apenas para diagnóstico
@@ -630,7 +601,6 @@ export async function POST(request: NextRequest) {
         // Continuar mesmo se houver erro ao salvar no banco (não bloquear resposta)
         // Mas logar o erro para debug
       } else {
-        console.log('✅ Geração salva no histórico:', savedGeneration.id)
       }
     } catch (saveError: any) {
       console.error('⚠️ Erro ao salvar geração no histórico:', saveError.message)
@@ -676,7 +646,6 @@ export async function POST(request: NextRequest) {
           },
           true // Permite saldo negativo
         )
-        console.log(`✅ ${creditsToDebit} créditos debitados pela geração de áudio (${durationMinutes.toFixed(2)} minutos)`)
       }
     } catch (creditError) {
       console.error('Erro ao debitar créditos pela geração de áudio:', creditError)

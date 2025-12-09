@@ -22,11 +22,41 @@ import {
   FileText,
   Sparkles,
   DollarSign,
+  Map,
+  Phone,
+  Globe,
+  Target,
+  Star,
+  Library,
+  Image,
+  Type,
+  ShoppingCart,
+  AudioLines,
+  FileAudio,
+  Maximize2,
+  Eraser,
+  TrendingUp,
+  CheckCircle2,
+  EyeOff,
+  Eye,
+  Lock,
+  Copy,
+  CheckSquare,
+  Timer,
+  Trophy,
+  Wallet,
+  StickyNote,
+  Youtube,
+  UserCircle,
+  X,
+  Link as LinkIcon,
+  GraduationCap,
+  Mail,
 } from "lucide-react"
 import { useAuthStore } from "@/store/auth-store"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase/client"
-import { VoiceClone } from "@/lib/types"
+import { Logo } from "./logo"
 
 type SidebarProps = {
   className?: string
@@ -34,16 +64,81 @@ type SidebarProps = {
 }
 
 const userNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/library", label: "Biblioteca", icon: BookOpen },
-  { href: "/favorites", label: "Favoritos", icon: Heart },
-  { href: "/voices", label: "Vozes IA", icon: Mic, hasSubmenu: true },
-  { href: "/copy-ia", label: "Copy IA", icon: FileText, hasSubmenu: true },
-  { href: "/categories", label: "Categorias", icon: FolderTree },
-  { href: "/community", label: "Comunidade", icon: Users },
-  { href: "/credits", label: "Créditos", icon: DollarSign },
-  { href: "/account", label: "Conta", icon: Settings },
-  { href: "/billing", label: "Cobrança", icon: CreditCard },
+  { 
+    href: "/conteudos", 
+    label: "Conteúdo", 
+    icon: BookOpen, 
+    hasSubmenu: true,
+    submenu: [
+      { href: "/conteudos/mapa-iniciante", label: "Mapa do Iniciante", icon: Map },
+      { href: "/conteudos/calls-gravadas", label: "Calls Gravadas", icon: Phone },
+      { href: "/conteudos/comunidade", label: "Comunidade", icon: Users },
+    ]
+  },
+  { 
+    href: "/espionagem", 
+    label: "Espionagem", 
+    icon: Globe, 
+    hasSubmenu: true,
+    submenu: [
+      { href: "/espionagem/espiao-dominios", label: "Espião de Domínio", icon: Target },
+      { href: "/espionagem/ofertas-escaladas", label: "Ofertas Escaladas", icon: TrendingUp },
+      { href: "/espionagem/favoritos", label: "Favorito", icon: Heart },
+      { href: "/espionagem/organizador-biblioteca", label: "Organizador de Biblioteca", icon: Library },
+    ]
+  },
+  { 
+    href: "/ias", 
+    label: "IA'", 
+    icon: Sparkles, 
+    hasSubmenu: true,
+    submenu: [
+      { href: "/ias/criador-criativo", label: "Criador de Criativo", icon: Image },
+      { href: "/ias/gerador-copy-criativo", label: "Gerador de Copy de Criativo", icon: Type },
+      { href: "/ias/gerador-upsell", label: "Gerador de Upsell", icon: ShoppingCart },
+      { href: "/ias/gerador-voz", label: "Gerador de Voz", icon: Mic },
+      { href: "/ias/transcrever-audio", label: "Transcrever Áudio", icon: FileAudio },
+      { href: "/ias/upscale", label: "Upscale", icon: Maximize2 },
+      { href: "/ias/remover-background", label: "Remover Background", icon: Eraser },
+    ]
+  },
+  { 
+    href: "/ferramentas", 
+    label: "Ferramenta", 
+    icon: Settings, 
+    hasSubmenu: true,
+    submenu: [
+      { href: "/ferramentas/otimizador-campanha", label: "Otimizador de Campanha", icon: TrendingUp },
+      { href: "/ferramentas/validador-criativo", label: "Validador de Criativo", icon: CheckCircle2 },
+      { href: "/ferramentas/mascarar-criativo", label: "Mascarar Criativo", icon: EyeOff },
+      { href: "/ferramentas/esconder-criativo", label: "Esconder Criativo", icon: Eye },
+      { href: "/ferramentas/criptografar-texto", label: "Criptografar Texto", icon: Lock },
+      { href: "/ferramentas/clonador", label: "Clonador", icon: Copy },
+    ]
+  },
+  { 
+    href: "/produtividade", 
+    label: "Produtividade", 
+    icon: CheckSquare, 
+    hasSubmenu: true,
+    submenu: [
+      { href: "/produtividade/tarefa", label: "Tarefa", icon: CheckSquare },
+      { href: "/produtividade/cronometro", label: "Cronômetro", icon: Timer },
+      { href: "/produtividade/meta", label: "Meta", icon: Trophy },
+      { href: "/produtividade/financeiro", label: "Financeiro", icon: Wallet },
+      { href: "/produtividade/anotacoes", label: "Anotações", icon: StickyNote },
+    ]
+  },
+  { 
+    href: "/links-uteis", 
+    label: "Links Úteis", 
+    icon: LinkIcon, 
+    hasSubmenu: true,
+    submenu: [
+      { href: "/links-uteis/canal-youtube", label: "Canal no YouTube", icon: Youtube },
+      { href: "/links-uteis/mentoria-individual", label: "Mentoria Individual", icon: UserCircle },
+    ]
+  },
 ]
 
 const adminNavItems = [
@@ -51,10 +146,12 @@ const adminNavItems = [
   { href: "/admin/users", label: "Usuários", icon: Shield },
   { href: "/admin/offers", label: "Ofertas", icon: BookOpen },
   { href: "/admin/categories", label: "Categorias", icon: FolderTree },
+  { href: "/admin/cursos", label: "Cursos", icon: GraduationCap },
+  { href: "/admin/calls-gravadas", label: "Calls Gravadas", icon: Phone },
   { href: "/admin/communities", label: "Comunidades", icon: Users },
   { href: "/admin/plans", label: "Planos", icon: CreditCard },
-  { href: "/admin/credits", label: "Créditos", icon: DollarSign },
   { href: "/admin/financial", label: "Financeiro", icon: DollarSign },
+  { href: "/admin/comunicacao", label: "Comunicação", icon: Mail },
   { href: "/admin/content", label: "Conteúdo", icon: Settings },
   { href: "/admin/logs", label: "Logs", icon: Shield },
   { href: "/admin/support", label: "Suporte", icon: Heart },
@@ -65,223 +162,149 @@ export function Sidebar({ className, onNavigate }: SidebarProps = {}) {
   const { profile, isAuthenticated } = useAuthStore()
   const isAdminArea = pathname?.startsWith("/admin")
   const isAdmin = profile?.role === "admin"
-  const navItems = isAdminArea ? adminNavItems : userNavItems
+  const navItems = (isAdminArea ? adminNavItems : userNavItems).filter(
+    (item) => item && item.href && typeof item.href === 'string'
+  )
   
-  const [voicesExpanded, setVoicesExpanded] = useState(pathname?.startsWith("/voices") || false)
-  const [copyIaExpanded, setCopyIaExpanded] = useState(pathname?.startsWith("/copy-ia") || false)
-  const [voices, setVoices] = useState<VoiceClone[]>([])
-
-  // Carregar vozes quando a sidebar estiver visível e usuário autenticado
-  useEffect(() => {
-    if (isAuthenticated && !isAdminArea) {
-      loadVoices()
-    }
-  }, [isAuthenticated, isAdminArea])
-
-  const loadVoices = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      }
-      
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
-
-      const response = await fetch('/api/voices/list', {
-        method: 'GET',
-        credentials: 'include',
-        headers,
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setVoices(data.voices || [])
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao carregar vozes na sidebar:', error)
-    }
+  const getSectionKey = (href: string) => {
+    return href.replace('/', '').replace(/-/g, '')
   }
+
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+    const sections: Record<string, boolean> = {}
+    navItems.forEach(item => {
+      if ('hasSubmenu' in item && item.hasSubmenu) {
+        sections[getSectionKey(item.href)] = pathname?.startsWith(item.href) || false
+      }
+    })
+    return sections
+  })
 
   const handleNavigate = () => {
     onNavigate?.()
   }
 
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }))
+  }
+
+  // Verificar se está sendo usado no mobile menu (quando className contém flex sem hidden)
+  const isMobileMenu = className?.includes('flex') && !className?.includes('md:flex') && !className?.includes('hidden')
+  
   return (
-    <aside className={cn("hidden md:flex flex-col w-64 border-r bg-background/50", className)}>
-      <div className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
-          const hasSubmenu = 'hasSubmenu' in item && item.hasSubmenu
+    <aside 
+      className={cn(
+        isMobileMenu 
+          ? "flex flex-col w-full border-0 bg-transparent" 
+          : "hidden md:flex flex-col w-64 border-r bg-background",
+        className
+      )}
+      style={isMobileMenu ? { 
+        display: 'flex !important',
+        flexDirection: 'column',
+        width: '100%',
+        visibility: 'visible',
+        opacity: 1,
+        position: 'relative' as const,
+        zIndex: 1,
+        overflow: 'visible',
+        height: 'auto',
+        minHeight: 'auto',
+        backgroundColor: 'transparent'
+      } : undefined}
+    >
+      <div className={cn("flex-1 p-2 md:p-4 space-y-1", isMobileMenu ? "overflow-visible" : "overflow-y-auto")}>
+        {navItems
+          .filter((item) => {
+            // Verificação rigorosa
+            if (!item) return false
+            if (!item.href) return false
+            if (typeof item.href !== 'string') return false
+            if (item.href.trim() === '') return false
+            return true
+          })
+          .map((item, index) => {
+          // Verificação dupla antes de usar
+          if (!item.href || typeof item.href !== 'string') {
+            return null
+          }
           
-          if (hasSubmenu && item.href === "/voices") {
+          const Icon = item.icon
+          const hasSubmenu = 'hasSubmenu' in item && item.hasSubmenu
+          const sectionKey = getSectionKey(item.href)
+          const isExpanded = expandedSections[sectionKey] || false
+          const isActive = pathname === item.href || (hasSubmenu && pathname?.startsWith(item.href))
+          
+          if (hasSubmenu && 'submenu' in item && item.submenu) {
+            const submenuItems = Array.isArray(item.submenu) ? item.submenu : []
             return (
               <div key={item.href} className="space-y-1">
                 <button
-                  onClick={() => setVoicesExpanded(!voicesExpanded)}
+                  type="button"
+                  onClick={() => toggleSection(sectionKey)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all relative group",
+                    "w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5 rounded-lg transition-all relative group text-sm md:text-base",
                     isActive
-                      ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary shadow-sm"
-                      : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                      ? "bg-[#ff5a1f] text-white font-semibold"
+                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  <span className="text-sm flex-1 text-left">{item.label}</span>
-                  {voicesExpanded ? (
+                  {Icon && <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />}
+                  <span className="text-sm md:text-base flex-1 text-left truncate">{item.label || ''}</span>
+                  {isExpanded ? (
                     <ChevronDown className="h-4 w-4" />
                   ) : (
                     <ChevronRight className="h-4 w-4" />
                   )}
-                  {isActive && (
-                    <div className="absolute right-8 w-1.5 h-1.5 rounded-full bg-primary" />
-                  )}
                 </button>
                 
-                {voicesExpanded && (
-                  <div className="ml-4 space-y-1 pl-4 border-l-2 border-border">
-                    <Link
-                      href="/voices/list"
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm",
-                        pathname === "/voices/list"
-                          ? "bg-primary/5 text-primary font-medium"
-                          : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                      )}
-                      onClick={() => {
-                        setVoicesExpanded(true)
-                        handleNavigate()
-                      }}
-                    >
-                      <Mic className="h-3.5 w-3.5" />
-                      <span>Minhas Vozes</span>
-                      {voices.length > 0 && (
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full ml-auto">
-                          {voices.length}
-                        </span>
-                      )}
-                    </Link>
-                    <Link
-                      href="/voices"
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm",
-                        pathname === "/voices" && !pathname.match(/\/voices\/(list|history|[^\/]+)/)
-                          ? "bg-primary/5 text-primary font-medium"
-                          : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                      )}
-                      onClick={() => {
-                        setVoicesExpanded(true)
-                        handleNavigate()
-                      }}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>Construir Voz</span>
-                    </Link>
-                    <Link
-                      href="/voices/history"
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm",
-                        pathname === "/voices/history"
-                          ? "bg-primary/5 text-primary font-medium"
-                          : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                      )}
-                      onClick={() => {
-                        setVoicesExpanded(true)
-                        handleNavigate()
-                      }}
-                    >
-                      <History className="h-3.5 w-3.5" />
-                      <span>Histórico de Gerações</span>
-                    </Link>
+                {isExpanded && submenuItems.length > 0 && (
+                  <div className="ml-2 md:ml-4 space-y-1 pl-2 md:pl-4 border-l-2 border-border mt-1">
+                    {submenuItems
+                      .filter((subItem) => {
+                        if (!subItem) return false
+                        if (!subItem.href) return false
+                        if (typeof subItem.href !== 'string') return false
+                        if (subItem.href.trim() === '') return false
+                        return true
+                      })
+                      .map((subItem, subIndex) => {
+                      // Verificação dupla
+                      if (!subItem.href || typeof subItem.href !== 'string') {
+                        return null
+                      }
+                      
+                      const SubIcon = subItem.icon
+                      const isSubActive = pathname === subItem.href || pathname?.startsWith(subItem.href + "/")
+                      return (
+                        <Link
+                          key={subItem.href}
+                          href={subItem.href}
+                          className={cn(
+                            "flex items-center gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg transition-all text-xs md:text-sm",
+                            isSubActive
+                              ? "bg-[#ff5a1f]/20 text-[#ff5a1f] font-medium"
+                              : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                          )}
+                          onClick={handleNavigate}
+                        >
+                          {SubIcon && <SubIcon className="h-3.5 w-3.5 md:h-4 md:w-4 flex-shrink-0" />}
+                          <span className="truncate">{subItem.label || ''}</span>
+                        </Link>
+                      )
+                    })}
                   </div>
                 )}
               </div>
             )
           }
-
-          if (hasSubmenu && item.href === "/copy-ia") {
-            return (
-              <div key={item.href} className="space-y-1">
-                <button
-                  onClick={() => setCopyIaExpanded(!copyIaExpanded)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all relative group",
-                    isActive
-                      ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary shadow-sm"
-                      : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="text-sm flex-1 text-left">{item.label}</span>
-                  {copyIaExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  {isActive && (
-                    <div className="absolute right-8 w-1.5 h-1.5 rounded-full bg-primary" />
-                  )}
-                </button>
-                
-                {copyIaExpanded && (
-                  <div className="ml-4 space-y-1 pl-4 border-l-2 border-border">
-                    <Link
-                      href="/copy-ia/gerar"
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm",
-                        pathname === "/copy-ia/gerar"
-                          ? "bg-primary/5 text-primary font-medium"
-                          : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                      )}
-                      onClick={() => {
-                        setCopyIaExpanded(true)
-                        handleNavigate()
-                      }}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>Gerar Copy</span>
-                    </Link>
-                    <Link
-                      href="/copy-ia/historico"
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm",
-                        pathname === "/copy-ia/historico"
-                          ? "bg-primary/5 text-primary font-medium"
-                          : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                      )}
-                      onClick={() => {
-                        setCopyIaExpanded(true)
-                        handleNavigate()
-                      }}
-                    >
-                      <History className="h-3.5 w-3.5" />
-                      <span>Histórico</span>
-                    </Link>
-                    <Link
-                      href="/copy-ia/modelos"
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm",
-                        pathname === "/copy-ia/modelos"
-                          ? "bg-primary/5 text-primary font-medium"
-                          : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                      )}
-                      onClick={() => {
-                        setCopyIaExpanded(true)
-                        handleNavigate()
-                      }}
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      <span>Modelos</span>
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )
+          
+          // Verificação final antes de renderizar Link
+          if (!item.href || typeof item.href !== 'string') {
+            return null
           }
           
           return (
@@ -289,22 +312,20 @@ export function Sidebar({ className, onNavigate }: SidebarProps = {}) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all relative group",
+                "flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5 rounded-lg transition-all relative group text-sm md:text-base",
                 isActive
-                  ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary shadow-sm"
-                  : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                  ? "bg-[#ff5a1f] text-white font-semibold"
+                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
               )}
               onClick={handleNavigate}
             >
-              <Icon className="h-4 w-4" />
-              <span className="text-sm">{item.label}</span>
-              {isActive && (
-                <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-primary" />
-              )}
+              {Icon && <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />}
+              <span className="text-sm md:text-base truncate">{item.label || ''}</span>
             </Link>
           )
         })}
       </div>
+
     </aside>
   )
 }

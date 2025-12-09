@@ -1,6 +1,6 @@
-# SwipeVault Pro - Frontend
+# ArcanumSpy - Frontend
 
-Sistema completo de front-end para o SaaS SwipeVault Pro, uma biblioteca de ofertas de Direct Response Marketing.
+Sistema completo de front-end para o SaaS ArcanumSpy, uma biblioteca de ofertas de Direct Response Marketing.
 
 ## 🚀 Tecnologias
 
@@ -110,7 +110,7 @@ Para testar o login, use:
 Usuários disponíveis:
 - `joao@example.com` - Plano Pro
 - `maria@example.com` - Plano Elite
-- `admin@swipevault.com` - Admin
+- `admin@arcanumspy.com` - Admin
 - `pedro@example.com` - Plano Free
 
 ## 🎨 Design System

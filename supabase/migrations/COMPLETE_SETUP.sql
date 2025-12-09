@@ -1,5 +1,5 @@
 -- ============================================
--- SWIPEVAULT PRO - COMPLETE DATABASE SETUP
+-- ARCANUMSPY - COMPLETE DATABASE SETUP
 -- Execute este arquivo completo no SQL Editor do Supabase
 -- ============================================
 

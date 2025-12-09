@@ -14,9 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { getAllCategories } from "@/lib/db/categories"
 import { supabase } from "@/lib/supabase/client"
-import { Plus, Edit, Trash2, Eye, Zap } from "lucide-react"
+import { Plus, Edit, Trash2, Eye, Zap, Upload, X, Image as ImageIcon } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { COUNTRIES, FORMATS, NICHES, PRODUCT_TYPES } from "@/lib/constants"
+import { COUNTRIES, FORMATS, NICHES, PRODUCT_TYPES, LANGUAGES } from "@/lib/constants"
 
 type OfferWithCategory = {
   id: string
@@ -24,7 +24,9 @@ type OfferWithCategory = {
   short_description?: string | null
   category_id?: string
   niche_id?: string | null
+  country?: string
   funnel_type?: string
+  temperature?: string
   main_url?: string
   facebook_ads_url?: string | null
   vsl_url?: string | null
@@ -57,7 +59,6 @@ export default function AdminOffersPage() {
 
   const loadOffers = async () => {
     const startTime = Date.now()
-    console.log('⏱️ [loadOffers] Iniciando carregamento de ofertas...')
     
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -82,7 +83,6 @@ export default function AdminOffersPage() {
       })
       
       const fetchTime = Date.now() - fetchStartTime
-      console.log(`⏱️ [loadOffers] Fetch executado em ${fetchTime}ms`)
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -93,14 +93,10 @@ export default function AdminOffersPage() {
       const parseStartTime = Date.now()
       const data = await response.json()
       const parseTime = Date.now() - parseStartTime
-      console.log(`⏱️ [loadOffers] Parse executado em ${parseTime}ms`, {
-        offersCount: data.offers?.length || 0
-      })
       
       setOffers(data.offers || [])
       
       const totalTime = Date.now() - startTime
-      console.log(`✅ [loadOffers] Carregamento completo em ${totalTime}ms`)
     } catch (error: any) {
       console.error('❌ [loadOffers] Erro ao carregar ofertas:', error)
       toast({
@@ -111,11 +107,18 @@ export default function AdminOffersPage() {
     }
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // CORREÇÃO: Flags para evitar múltiplas execuções simultâneas
+  const [dataLoaded, setDataLoaded] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(false)
+
   useEffect(() => {
+    // CORREÇÃO: Se já carregou os dados ou está carregando, não executar novamente
+    if (dataLoaded || isLoadingData) return
+
     const loadData = async () => {
+      // Marcar como carregando para evitar execuções simultâneas
+      setIsLoadingData(true)
       const startTime = Date.now()
-      console.log('⏱️ [Admin Offers Page] Iniciando carregamento de dados...')
       
       setLoading(true)
       try {
@@ -125,7 +128,6 @@ export default function AdminOffersPage() {
           getAllCategories(),
         ])
         const categoriesTime = Date.now() - loadStartTime
-        console.log(`⏱️ [Admin Offers Page] Categorias carregadas em ${categoriesTime}ms`)
         
         setCategories(categoriesData)
         
@@ -133,10 +135,9 @@ export default function AdminOffersPage() {
         const offersStartTime = Date.now()
         await loadOffers()
         const offersTime = Date.now() - offersStartTime
-        console.log(`⏱️ [Admin Offers Page] Ofertas carregadas em ${offersTime}ms`)
         
+        setDataLoaded(true)
         const totalTime = Date.now() - startTime
-        console.log(`✅ [Admin Offers Page] Carregamento completo em ${totalTime}ms`)
       } catch (error) {
         console.error('❌ [Admin Offers Page] Erro ao carregar dados:', error)
         toast({
@@ -146,11 +147,13 @@ export default function AdminOffersPage() {
         })
       } finally {
         setLoading(false)
+        setIsLoadingData(false)
       }
     }
     
     loadData()
-  }, [toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast, dataLoaded, isLoadingData])
 
   const filteredOffers = offers.filter((offer) =>
     offer.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -212,15 +215,12 @@ export default function AdminOffersPage() {
 
   const handleSaveOffer = async (data: any) => {
     if (savingOffer) {
-      console.log('Já está salvando, ignorando...')
       return
     }
     
     setSavingOffer(true)
-    console.log('handleSaveOffer chamado com:', data)
     
     try {
-      console.log('1. Obtendo sessão...')
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError) {
@@ -243,7 +243,6 @@ export default function AdminOffersPage() {
         return
       }
 
-      console.log('2. Sessão obtida, preparando requisição...')
       const url = editingOffer ? `/api/admin/offers/${editingOffer.id}` : '/api/admin/offers'
       const method = editingOffer ? 'PUT' : 'POST'
 
@@ -253,6 +252,7 @@ export default function AdminOffersPage() {
         category_id: data.category_id,
         niche_id: data.niche_id && data.niche_id !== 'none' ? data.niche_id : null,
         country: data.country || 'BR',
+        language: data.language || 'pt',
         funnel_type: data.funnel_type,
         temperature: data.temperature || 'testing',
         main_url: data.main_url,
@@ -271,10 +271,18 @@ export default function AdminOffersPage() {
         analysis: data.analysis || null,
         scaled_at: data.scaled_at || null,
         expires_at: data.expires_at || null,
+        image_url: data.image_url || null,
       }
 
-      console.log('3. Enviando requisição:', { url, method, payload })
-
+      console.log('📤 [handleSaveOffer] Enviando payload:', {
+        url,
+        method,
+        hasImageUrl: !!payload.image_url,
+        imageUrl: payload.image_url,
+        language: payload.language,
+        title: payload.title
+      })
+      
       const response = await fetch(url, {
         method,
         headers: {
@@ -284,33 +292,39 @@ export default function AdminOffersPage() {
         body: JSON.stringify(payload),
       })
 
-      console.log('4. Resposta recebida:', response.status, response.statusText)
-
       const responseData = await response.json().catch((parseError) => {
-        console.error('Erro ao parsear resposta:', parseError)
+        console.error('❌ [handleSaveOffer] Erro ao parsear resposta:', parseError)
         return { error: 'Erro ao processar resposta do servidor' }
       })
 
-      console.log('5. Dados da resposta:', responseData)
+      console.log('📥 [handleSaveOffer] Resposta do servidor:', {
+        status: response.status,
+        ok: response.ok,
+        hasOffer: !!responseData.offer,
+        offerImageUrl: responseData.offer?.image_url,
+        offerLanguage: responseData.offer?.language
+      })
 
       if (!response.ok) {
-        console.error('Erro ao salvar oferta:', responseData)
+        console.error('❌ [handleSaveOffer] Erro ao salvar oferta:', responseData)
         throw new Error(responseData.error || `Erro ${response.status}: ${response.statusText}`)
       }
 
-      console.log('6. Oferta salva com sucesso:', responseData)
+      console.log('✅ [handleSaveOffer] Oferta salva com sucesso:', {
+        id: responseData.offer?.id,
+        title: responseData.offer?.title,
+        image_url: responseData.offer?.image_url,
+        language: responseData.offer?.language
+      })
 
       toast({
         title: editingOffer ? "Oferta atualizada" : "Oferta criada",
         description: editingOffer ? "A oferta foi atualizada com sucesso" : "A nova oferta foi criada com sucesso",
       })
       
-      console.log('7. Recarregando ofertas...')
       await loadOffers()
-      console.log('8. Fechando diálogo...')
       setEditingOffer(null)
       setIsDialogOpen(false)
-      console.log('9. Processo concluído!')
     } catch (error: any) {
       console.error('ERRO CAPTURADO ao salvar oferta:', error)
       console.error('Stack trace:', error.stack)
@@ -471,6 +485,7 @@ function OfferForm({
     category_id: offer?.category_id || '',
     niche_id: offer?.niche_id ? offer.niche_id : 'none',
     country: offer?.country || 'BR',
+    language: (offer as any)?.language || 'pt',
     funnel_type: offer?.funnel_type || '',
     temperature: offer?.temperature || 'testing',
     main_url: offer?.main_url || '',
@@ -489,7 +504,11 @@ function OfferForm({
     analysis: (offer as any)?.analysis || '',
     scaled_at: (offer as any)?.scaled_at || null,
     expires_at: (offer as any)?.expires_at || null,
+    image_url: (offer as any)?.image_url || '',
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>((offer as any)?.image_url || null)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [niches, setNiches] = useState<any[]>([])
   const [loadingNiches, setLoadingNiches] = useState(false)
   const [showCreateNiche, setShowCreateNiche] = useState(false)
@@ -507,6 +526,7 @@ function OfferForm({
         category_id: offer.category_id || '',
         niche_id: offer.niche_id ? offer.niche_id : 'none',
         country: offer.country || 'BR',
+        language: (offer as any)?.language || 'pt',
         funnel_type: offer.funnel_type || '',
         temperature: offer.temperature || 'testing',
         main_url: offer.main_url || '',
@@ -534,6 +554,7 @@ function OfferForm({
         category_id: '',
         niche_id: 'none',
         country: 'BR',
+        language: 'pt',
         funnel_type: '',
         temperature: 'testing',
         main_url: '',
@@ -552,13 +573,15 @@ function OfferForm({
         analysis: '',
         scaled_at: null,
         expires_at: null,
+        image_url: '',
       })
+      setImagePreview(null)
+      setImageFile(null)
       setNiches([])
     }
   }, [offer])
 
   const loadNiches = async (categoryId: string) => {
-    console.log('🔍 [OfferForm] Carregando nichos para categoria:', categoryId)
     setLoadingNiches(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -568,7 +591,6 @@ function OfferForm({
         return
       }
 
-      console.log('📡 [OfferForm] Chamando API /api/niches...', { categoryId })
       const response = await fetch(`/api/niches?category_id=${categoryId}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -582,10 +604,6 @@ function OfferForm({
       }
       
       const data = await response.json()
-      console.log('✅ [OfferForm] Nichos recebidos da API:', {
-        count: data.niches?.length || 0,
-        niches: data.niches?.map((n: any) => ({ id: n.id, name: n.name }))
-      })
       
       setNiches(data.niches || [])
       
@@ -606,7 +624,6 @@ function OfferForm({
   }
 
   const handleCreateNiche = async (nicheName: string) => {
-    console.log('handleCreateNiche chamado:', nicheName)
     
     if (!nicheName || !nicheName.trim()) {
       toast({
@@ -637,8 +654,6 @@ function OfferForm({
         return
       }
 
-      console.log('Criando nicho:', { name: nicheName, category_id: formData.category_id })
-
       // Criar nicho via API
       const response = await fetch('/api/niches', {
         method: 'POST',
@@ -660,7 +675,6 @@ function OfferForm({
         throw new Error(responseData.error || `Erro ${response.status}: ${response.statusText}`)
       }
 
-      console.log('Nicho criado com sucesso:', responseData)
       
       toast({
         title: "Nicho criado",
@@ -732,6 +746,80 @@ function OfferForm({
         />
       </div>
 
+      {/* Campo de Upload de Imagem */}
+      <div className="space-y-2">
+        <Label>Imagem da Oferta (opcional)</Label>
+        <div className="space-y-3">
+          {imagePreview ? (
+            <div className="relative">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={() => {
+                  setImagePreview(null)
+                  setImageFile(null)
+                  setFormData({ ...formData, image_url: '' })
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 text-center">
+              <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Clique para fazer upload de uma imagem
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                id="image-upload"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    // Validar tamanho (máximo 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast({
+                        title: "Erro",
+                        description: "A imagem deve ter no máximo 5MB",
+                        variant: "destructive",
+                      })
+                      return
+                    }
+                    setImageFile(file)
+                    const reader = new FileReader()
+                    reader.onloadend = () => {
+                      setImagePreview(reader.result as string)
+                    }
+                    reader.readAsDataURL(file)
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => document.getElementById('image-upload')?.click()}
+                disabled={uploadingImage}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {uploadingImage ? "Enviando..." : "Selecionar Imagem"}
+              </Button>
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Formatos aceitos: JPG, PNG, WEBP. Tamanho máximo: 5MB
+        </p>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -767,7 +855,6 @@ function OfferForm({
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  console.log('Botão Criar nicho clicado')
                   if (newNicheName.trim()) {
                     handleCreateNiche(newNicheName)
                   } else {
@@ -892,6 +979,24 @@ function OfferForm({
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label>Idioma *</Label>
+          <Select value={formData.language} onValueChange={(value) => setFormData({ ...formData, language: value })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o idioma" />
+            </SelectTrigger>
+            <SelectContent>
+              {LANGUAGES.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code}>
+                  {lang.flag} {lang.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Temperatura / Status *</Label>
           <Select value={formData.temperature} onValueChange={(value) => setFormData({ ...formData, temperature: value })}>
@@ -1106,11 +1211,10 @@ function OfferForm({
         </Button>
         <Button 
           type="button"
-          disabled={savingOffer}
+          disabled={savingOffer || uploadingImage}
           onClick={async (e) => {
             e.preventDefault()
             e.stopPropagation()
-            console.log('Botão salvar oferta clicado', formData)
             
             // Validar campos obrigatórios
             if (!formData.title || !formData.title.trim()) {
@@ -1158,15 +1262,97 @@ function OfferForm({
               return
             }
             
-            console.log('Chamando onSave com:', formData)
             try {
-              await onSave(formData)
-            } catch (error) {
-              console.error('Erro ao chamar onSave:', error)
+              // Se houver imagem para upload, fazer upload primeiro
+              let finalImageUrl = formData.image_url
+              if (imageFile) {
+                setUploadingImage(true)
+                try {
+                  console.log('📤 Iniciando upload de imagem...', imageFile.name, imageFile.size)
+                  const { data: { session } } = await supabase.auth.getSession()
+                  if (!session) {
+                    throw new Error("Não autenticado")
+                  }
+
+                  const formDataUpload = new FormData()
+                  formDataUpload.append('image', imageFile)
+                  
+                  console.log('📡 Enviando requisição de upload...')
+                  
+                  // Criar AbortController para timeout
+                  const controller = new AbortController()
+                  const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 segundos
+                  
+                  try {
+                    const uploadResponse = await fetch('/api/admin/offers/upload-image', {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                      },
+                      body: formDataUpload,
+                      signal: controller.signal,
+                    })
+                    
+                    clearTimeout(timeoutId)
+
+                    console.log('📥 Resposta do upload:', uploadResponse.status, uploadResponse.statusText)
+
+                    if (!uploadResponse.ok) {
+                      const errorData = await uploadResponse.json().catch(() => ({}))
+                      console.error('❌ Erro no upload:', errorData)
+                      throw new Error(errorData.error || `Erro ${uploadResponse.status}: ${uploadResponse.statusText}`)
+                    }
+
+                    const uploadData = await uploadResponse.json()
+                    console.log('📸 Upload response:', uploadData)
+                    finalImageUrl = uploadData.imageUrl || uploadData.image_url
+                    if (!finalImageUrl) {
+                      console.error('❌ URL da imagem não encontrada na resposta:', uploadData)
+                      throw new Error('URL da imagem não retornada pelo servidor')
+                    }
+                    console.log('✅ URL da imagem obtida:', finalImageUrl)
+                    setFormData(prev => ({ ...prev, image_url: finalImageUrl }))
+                  } catch (fetchError: any) {
+                    clearTimeout(timeoutId)
+                    if (fetchError.name === 'AbortError') {
+                      console.error('❌ Timeout no upload')
+                      throw new Error('Upload demorou muito tempo. Tente novamente com uma imagem menor.')
+                    }
+                    throw fetchError
+                  }
+                } catch (uploadError: any) {
+                  console.error('❌ Erro completo no upload:', uploadError)
+                  toast({
+                    title: "Erro no Upload",
+                    description: uploadError.message || "Erro ao fazer upload da imagem",
+                    variant: "destructive",
+                  })
+                  setUploadingImage(false)
+                  return
+                } finally {
+                  setUploadingImage(false)
+                }
+              }
+
+              console.log('💾 [OfferForm] Salvando oferta com dados:', {
+                title: formData.title,
+                image_url: finalImageUrl,
+                language: formData.language,
+                category_id: formData.category_id,
+                hasImageUrl: !!finalImageUrl
+              })
+              await onSave({ ...formData, image_url: finalImageUrl })
+            } catch (error: any) {
+              console.error('❌ Erro ao chamar onSave:', error)
+              toast({
+                title: "Erro",
+                description: error.message || "Erro ao salvar oferta",
+                variant: "destructive",
+              })
             }
           }}
         >
-          {savingOffer ? "Salvando..." : (offer ? "Atualizar" : "Criar")} Oferta
+          {uploadingImage ? "Enviando imagem..." : savingOffer ? "Salvando..." : (offer ? "Atualizar" : "Criar")} Oferta
         </Button>
       </DialogFooter>
     </div>

@@ -1,5 +1,5 @@
 -- ============================================
--- SWIPEVAULT PRO - COMPLETE SCHEMA UPDATES
+-- ARCANUMSPY - COMPLETE SCHEMA UPDATES
 -- Migration 008: Adiciona novas funcionalidades
 -- ============================================
 

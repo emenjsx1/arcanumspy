@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { MoreHorizontal, Eye, Key, Ban, Check } from "lucide-react"
+import { MoreHorizontal, Eye, Key, Ban, Check, Shield, User } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase/client"
 
@@ -108,6 +108,53 @@ export default function AdminUsersPage() {
     })
   }
 
+  const handleChangeRole = async (userId: string, currentRole: string) => {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin'
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        toast({
+          title: "Erro",
+          description: "Não autenticado",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ role: newRole }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar role')
+      }
+
+      toast({
+        title: "Sucesso",
+        description: data.message || `Usuário agora é ${newRole === 'admin' ? 'admin' : 'usuário'}`,
+      })
+
+      // Recarregar lista de usuários
+      loadUsers()
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível atualizar o role do usuário",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -183,9 +230,14 @@ export default function AdminUsersPage() {
                         <Badge variant="secondary">{planName}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="default">
-                          Ativo
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            {user.role === 'admin' ? 'Admin' : 'Usuário'}
+                          </Badge>
+                          <Badge variant="default">
+                            Ativo
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(user.created_at).toLocaleDateString('pt-BR')}
@@ -201,6 +253,22 @@ export default function AdminUsersPage() {
                             <DropdownMenuItem>
                               <Eye className="mr-2 h-4 w-4" />
                               Ver detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleChangeRole(user.id, user.role)}
+                              className={user.role === 'admin' ? "text-orange-600" : "text-blue-600"}
+                            >
+                              {user.role === 'admin' ? (
+                                <>
+                                  <User className="mr-2 h-4 w-4" />
+                                  Remover Admin
+                                </>
+                              ) : (
+                                <>
+                                  <Shield className="mr-2 h-4 w-4" />
+                                  Tornar Admin
+                                </>
+                              )}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleResetPassword(user.id)}>
                               <Key className="mr-2 h-4 w-4" />

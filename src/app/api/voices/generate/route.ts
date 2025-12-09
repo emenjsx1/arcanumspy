@@ -12,7 +12,6 @@ const FISH_AUDIO_API_KEY = process.env.FISH_AUDIO_API_KEY
 const FISH_AUDIO_API_URL = process.env.FISH_AUDIO_API_URL || "https://api.fish.audio"
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 POST /api/voices/generate - Iniciando...')
   
   try {
     const supabase = await createClient()
@@ -60,12 +59,6 @@ export async function POST(request: NextRequest) {
       model = voiceModel.model_id
     }
     
-    console.log('🎯 Gerando áudio:', {
-      model,
-      textLength: text.length,
-      params
-    })
-    
     // Preparar payload para Fish API
     const payload: any = {
       model: model,
@@ -82,7 +75,6 @@ export async function POST(request: NextRequest) {
     if (params?.emotion) payload.emotion = params.emotion
     if (params?.language) payload.language = params.language
     
-    console.log('📤 Enviando para Fish API /v1/tts...')
     
     const response = await fetch(`${FISH_AUDIO_API_URL}/v1/tts`, {
       method: "POST",
@@ -106,7 +98,6 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await response.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     
-    console.log('✅ Áudio gerado:', buffer.length, 'bytes')
     
     // Salvar no storage (opcional)
     let audioUrl: string | null = null
@@ -115,7 +106,6 @@ export async function POST(request: NextRequest) {
       try {
         const fileName = `voice-generations/${user.id}/${Date.now()}.${params?.format || 'mp3'}`
         audioUrl = await saveToStorage(buffer, fileName)
-        console.log('✅ Áudio salvo no storage:', audioUrl)
       } catch (storageError: any) {
         console.warning('⚠️ Erro ao salvar no storage:', storageError.message)
         // Continuar mesmo se falhar

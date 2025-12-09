@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export interface DashboardStats {
   offersViewed: number // Este mês
@@ -34,9 +35,15 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     let creditsUsedTotal = 0
 
     // Tentar buscar de user_activities primeiro (mais preciso)
+    // Usar adminClient para evitar problemas de RLS
     try {
+      const adminClient = createAdminClient()
+      
       // Este mês
-      const { data: activitiesThisMonth, error: activitiesError } = await supabase
+      let activitiesThisMonth: any[] | null = null
+      let activitiesTotal: any[] | null = null
+      
+      const { data: initialActivitiesThisMonth, error: activitiesError } = await adminClient
         .from('user_activities')
         .select('credits_used, offer_id')
         .eq('user_id', user.id)
@@ -44,27 +51,42 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         .gte('created_at', startOfMonth.toISOString())
 
       // Total
-      const { data: activitiesTotal, error: activitiesTotalError } = await supabase
+      const { data: initialActivitiesTotal, error: activitiesTotalError } = await adminClient
         .from('user_activities')
         .select('credits_used, offer_id')
         .eq('user_id', user.id)
         .eq('type', 'OFFER_VIEW')
 
-      if (!activitiesError && activitiesThisMonth) {
+      if (activitiesError) {
+        console.warn('⚠️ [getDashboardStats] Erro ao buscar atividades deste mês:', activitiesError.message || activitiesError.code)
+        activitiesThisMonth = []
+      } else {
+        activitiesThisMonth = initialActivitiesThisMonth || []
+      }
+
+      if (activitiesTotalError) {
+        console.warn('⚠️ [getDashboardStats] Erro ao buscar total de atividades:', activitiesTotalError.message || activitiesTotalError.code)
+        activitiesTotal = []
+      } else {
+        activitiesTotal = initialActivitiesTotal || []
+      }
+
+      // Processar os dados
+      if (activitiesThisMonth && activitiesThisMonth.length > 0) {
         // Contar ofertas únicas visualizadas este mês
         const uniqueOffersThisMonth = new Set(activitiesThisMonth.map(a => a.offer_id).filter(Boolean))
         viewsCount = uniqueOffersThisMonth.size
         creditsUsed = activitiesThisMonth.reduce((sum, a) => sum + (a.credits_used || 0), 0)
       }
 
-      if (!activitiesTotalError && activitiesTotal) {
+      if (activitiesTotal && activitiesTotal.length > 0) {
         // Contar ofertas únicas visualizadas no total
         const uniqueOffersTotal = new Set(activitiesTotal.map(a => a.offer_id).filter(Boolean))
         viewsCountTotal = uniqueOffersTotal.size
         creditsUsedTotal = activitiesTotal.reduce((sum, a) => sum + (a.credits_used || 0), 0)
       }
     } catch (error) {
-      // Se user_activities não existir, usar offer_views como fallback
+      // Se user_activities não existir ou houver qualquer erro, usar offer_views como fallback
       try {
         // Este mês
         const { data: viewsThisMonth } = await supabase
@@ -134,7 +156,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
 export async function getRecommendedOffers(limit = 6) {
   const startTime = Date.now()
-  console.log(`⏱️ [getRecommendedOffers] Iniciando busca de ${limit} ofertas recomendadas...`)
   
   try {
     const { data: { user } } = await supabase.auth.getUser()
@@ -152,7 +173,6 @@ export async function getRecommendedOffers(limit = 6) {
       .limit(50) // Reduzido de 100 para 50 para melhor performance
 
     const viewsTime = Date.now() - viewsStartTime
-    console.log(`⏱️ [getRecommendedOffers] Visualizações carregadas em ${viewsTime}ms`)
 
     const categoryCounts: Record<string, number> = {}
     views?.forEach((v: any) => {
@@ -164,8 +184,6 @@ export async function getRecommendedOffers(limit = 6) {
 
     const topCategory = Object.entries(categoryCounts)
       .sort(([, a], [, b]) => b - a)[0]?.[0]
-
-    console.log(`🔍 [getRecommendedOffers] Categoria mais vista: ${topCategory || 'nenhuma'}`)
 
     // Get offers from top category or hot offers
     const queryStartTime = Date.now()
@@ -230,12 +248,10 @@ export async function getRecommendedOffers(limit = 6) {
         }
         
         const totalTime = Date.now() - startTime
-        console.log(`✅ [getRecommendedOffers] ${simpleData?.length || 0} ofertas recomendadas encontradas em ${totalTime}ms`)
         return simpleData || []
       }
       
       const totalTime = Date.now() - startTime
-      console.log(`✅ [getRecommendedOffers] ${fallbackData?.length || 0} ofertas recomendadas encontradas em ${totalTime}ms (fallback)`)
       return (fallbackData || []) as OfferWithCategory[]
     }
 
@@ -245,7 +261,6 @@ export async function getRecommendedOffers(limit = 6) {
     }
 
     const totalTime = Date.now() - startTime
-    console.log(`✅ [getRecommendedOffers] ${data?.length || 0} ofertas recomendadas encontradas em ${totalTime}ms (query: ${queryTime}ms)`)
     return (data || []) as OfferWithCategory[]
   } catch (error) {
     console.error('❌ [getRecommendedOffers] Erro geral:', error)
@@ -300,9 +315,11 @@ export async function getRecentActivities(limit = 10): Promise<RecentActivity[]>
 
     const activitiesPromise = (async () => {
       // Buscar atividades recentes da tabela user_activities
+      // Usar adminClient para evitar problemas de RLS
       let activities: any[] = []
       try {
-        const { data, error: activitiesError } = await supabase
+        const adminClient = createAdminClient()
+        const { data, error: activitiesError } = await adminClient
           .from('user_activities')
           .select('*')
           .eq('user_id', user.id)
@@ -310,19 +327,14 @@ export async function getRecentActivities(limit = 10): Promise<RecentActivity[]>
           .limit(limit)
 
         if (activitiesError) {
-          // Se a tabela não existir ou der erro, buscar de outras fontes silenciosamente
-          if (activitiesError.code === '42P01' || activitiesError.code === 'PGRST202') {
-            console.log('ℹ️ [getRecentActivities] Tabela user_activities não existe ainda, usando fallback')
-          }
+          console.warn('⚠️ [getRecentActivities] Erro ao buscar user_activities:', activitiesError.message || activitiesError.code, '- usando fallback')
           return await getRecentActivitiesFromOtherSources(limit)
         }
 
         activities = data || []
       } catch (error: any) {
-        // Se houver qualquer erro, buscar de outras fontes
-        if (error?.code === '42P01' || error?.code === 'PGRST202') {
-          console.log('ℹ️ [getRecentActivities] Tabela user_activities não existe ainda, usando fallback')
-        }
+        // Se houver qualquer erro (incluindo 500), buscar de outras fontes
+        console.warn('⚠️ [getRecentActivities] Exceção ao buscar user_activities:', error?.message || error, '- usando fallback')
         return await getRecentActivitiesFromOtherSources(limit)
       }
 
@@ -443,5 +455,4 @@ async function getRecentActivitiesFromOtherSources(limit: number): Promise<Recen
     return []
   }
 }
-
 

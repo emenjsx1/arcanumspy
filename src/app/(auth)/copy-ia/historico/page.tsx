@@ -93,7 +93,7 @@ export default function HistoricoCopyPage() {
     return (
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold">Histórico</h1>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold break-words">Histórico</h1>
           <p className="text-muted-foreground mt-1">
             Visualize todas as copies geradas anteriormente
           </p>
@@ -120,7 +120,7 @@ export default function HistoricoCopyPage() {
     return (
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold">Histórico</h1>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold break-words">Histórico</h1>
           <p className="text-muted-foreground mt-1">
             Visualize todas as copies geradas anteriormente
           </p>
@@ -143,7 +143,7 @@ export default function HistoricoCopyPage() {
   return (
     <div className="max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Histórico</h1>
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold break-words">Histórico</h1>
         <p className="text-muted-foreground mt-1">
           Visualize todas as copies geradas anteriormente
         </p>
@@ -371,12 +371,4 @@ export default function HistoricoCopyPage() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
 

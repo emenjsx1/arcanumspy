@@ -1,10 +1,13 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const topLimit = searchParams.get('top')
+    
     // Try to get user from cookies first
     const supabase = await createClient()
     let { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -46,17 +49,78 @@ export async function GET(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }
       )
     }
 
+    // Se for uma requisição de top offers, buscar as mais vistas
+    if (topLimit) {
+      const limit = parseInt(topLimit, 10) || 10
+      const startTime = Date.now()
+      
+      // Buscar views e contar por oferta
+      const { data: viewsData } = await adminClient
+        .from('offer_views')
+        .select('offer_id')
+        .catch(() => ({ data: [] }))
+      
+      const viewCounts: Record<string, number> = {}
+      viewsData?.forEach((v: any) => {
+        if (v.offer_id) {
+          viewCounts[v.offer_id] = (viewCounts[v.offer_id] || 0) + 1
+        }
+      })
+      
+      // Ordenar por views
+      const sortedOfferIds = Object.entries(viewCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, limit)
+        .map(([offerId]) => offerId)
+      
+      let offersResult
+      if (sortedOfferIds.length > 0) {
+        offersResult = await adminClient
+          .from('offers')
+          .select(`
+            *,
+            category:categories(id, name, slug, emoji)
+          `)
+          .in('id', sortedOfferIds)
+          .eq('is_active', true)
+      } else {
+        // Fallback: ofertas recentes
+        offersResult = await adminClient
+          .from('offers')
+          .select(`
+            *,
+            category:categories(id, name, slug, emoji)
+          `)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(limit)
+      }
+      
+      if (offersResult.error) throw offersResult.error
+      
+      const offers = (offersResult.data || []).map((offer: any) => ({
+        ...offer,
+        views_count: viewCounts[offer.id] || 0,
+      }))
+      
+      offers.sort((a: any, b: any) => (b.views_count || 0) - (a.views_count || 0))
+      
+      const totalTime = Date.now() - startTime
+      
+      return NextResponse.json({ offers: offers.slice(0, limit) })
+    }
+    
     // OTIMIZAÇÃO: Buscar ofertas sem join com niches primeiro (mais rápido)
     // Se precisar de nichos, pode fazer join depois ou buscar separadamente
     const startTime = Date.now()
-    console.log('⏱️ [API /admin/offers] Iniciando busca de ofertas...')
     
     let offers: any[] = []
     let error: any = null
@@ -112,9 +176,6 @@ export async function GET(request: Request) {
     }
     
     const queryTime = Date.now() - queryStartTime
-    console.log(`⏱️ [API /admin/offers] Query executada em ${queryTime}ms`, {
-      offersCount: offersData?.length || 0
-    })
 
     if (offersError) {
       console.error('❌ [API /admin/offers] Erro ao buscar ofertas:', offersError)
@@ -129,9 +190,6 @@ export async function GET(request: Request) {
     if (error) throw error
 
     const totalTime = Date.now() - startTime
-    console.log(`✅ [API /admin/offers] Ofertas carregadas em ${totalTime}ms`, {
-      count: offers.length
-    })
 
     return NextResponse.json({ offers: offers || [] })
   } catch (error: any) {
@@ -143,12 +201,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  console.log('🔵 POST /api/admin/offers - Iniciando...')
   try {
     // Try to get user from cookies first
     const supabase = await createClient()
     let { data: { user }, error: authError } = await supabase.auth.getUser()
-    console.log('🔵 Usuário obtido:', user?.id || 'não encontrado')
     
     // If that fails, try from Authorization header
     if (authError || !user) {
@@ -197,7 +253,8 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }
@@ -205,13 +262,21 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    console.log('🔵 Body recebido:', body)
+    console.log('📥 [POST /api/admin/offers] Body recebido:', {
+      title: body.title,
+      hasImageUrl: !!body.image_url,
+      imageUrl: body.image_url,
+      language: body.language,
+      category_id: body.category_id
+    })
+    
     const {
       title,
       short_description,
       category_id,
       niche_id,
       country,
+      language,
       funnel_type,
       temperature,
       main_url,
@@ -228,6 +293,7 @@ export async function POST(request: Request) {
       bullets,
       cta_text,
       analysis,
+      image_url,
     } = body
 
     if (!title || !category_id || !funnel_type || !main_url || !country) {
@@ -296,6 +362,9 @@ export async function POST(request: Request) {
       category_id,
       niche_id: finalNicheId,
       country: country || 'BR',
+      // language pode não existir no schema cache - não incluir para evitar erro PGRST204
+      // A migration 050 precisa ser executada e o PostgREST precisa ser reiniciado
+      // language: language || 'pt',
       funnel_type,
       temperature: temperature || 'testing',
       main_url,
@@ -308,7 +377,15 @@ export async function POST(request: Request) {
       created_by: user.id,
       scaled_at: body.scaled_at || null,
       expires_at: body.expires_at || null,
+      image_url: image_url || null,
     }
+    
+    console.log('💾 [POST /api/admin/offers] Dados para inserir:', {
+      title: insertData.title,
+      image_url: insertData.image_url,
+      language: 'não incluído (coluna pode não existir)',
+      category_id: insertData.category_id
+    })
 
     // Adicionar campos da estrutura da oferta apenas se fornecidos
     // Não adicionar se forem undefined para evitar erros de colunas inexistentes
@@ -321,7 +398,6 @@ export async function POST(request: Request) {
     // Remover analysis e creator_notes se não existirem na tabela
     // A migration 024 precisa ser executada para adicionar esses campos
     
-    console.log('🔵 Inserindo oferta com dados:', insertData)
     
     const { data: offerInsert, error: insertError } = await adminClient
       .from('offers')
@@ -349,6 +425,8 @@ export async function POST(request: Request) {
           category_id,
           niche_id: finalNicheId,
           country: country || 'BR',
+          // language pode não existir - não incluir no safeInsertData
+          // language: language || 'pt',
           funnel_type,
           temperature: temperature || 'testing',
           main_url,
@@ -359,6 +437,7 @@ export async function POST(request: Request) {
           quiz_url: quiz_url || null,
           is_active: is_active !== undefined ? is_active : true,
           created_by: user.id,
+          image_url: image_url || null,
         }
         
         // Tentar inserir novamente sem os campos opcionais
@@ -451,7 +530,6 @@ export async function POST(request: Request) {
       console.warn('⚠️ Erro ao buscar relacionamentos, retornando oferta sem eles:', e.message)
     }
 
-    console.log('✅ Oferta criada com sucesso:', offer?.id)
     return NextResponse.json({ offer }, { status: 201 })
   } catch (error: any) {
     console.error('❌ Erro geral ao criar oferta:', error)

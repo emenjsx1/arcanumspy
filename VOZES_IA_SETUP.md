@@ -1,6 +1,6 @@
 # 🎤 Vozes IA - Guia de Configuração
 
-Este guia explica como configurar e usar a funcionalidade de **Vozes IA – Clone e Gere Narrações** na plataforma SwipeVault Pro.
+Este guia explica como configurar e usar a funcionalidade de **Vozes IA – Clone e Gere Narrações** na plataforma ArcanumSpy.
 
 ## 📋 Pré-requisitos
 

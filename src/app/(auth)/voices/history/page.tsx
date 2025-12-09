@@ -204,7 +204,7 @@ export default function VoiceHistoryPage() {
           Voltar
         </Button>
 
-        <h1 className="text-3xl font-bold mb-2">Histórico de Gerações</h1>
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold mb-2 break-words">Histórico de Gerações</h1>
         <p className="text-muted-foreground">
           Visualize todas as gerações de voz que você criou
         </p>

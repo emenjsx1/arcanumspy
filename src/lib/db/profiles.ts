@@ -12,7 +12,6 @@ export async function getCurrentUserProfile(force: boolean = false): Promise<Pro
   // Prevenir múltiplas chamadas simultâneas (mas permitir forçar)
   const now = Date.now()
   if (!force && (profileFetchInProgress || (now - lastProfileFetchTime) < PROFILE_FETCH_COOLDOWN)) {
-    console.log('Profile fetch already in progress or too soon, skipping...')
     return null
   }
 
@@ -111,5 +110,4 @@ export async function updateProfile(updates: Partial<Profile>): Promise<Profile 
     throw error
   }
 }
-
 

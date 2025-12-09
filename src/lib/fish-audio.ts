@@ -13,9 +13,6 @@ const FISH_AUDIO_API_KEY = process.env.FISH_AUDIO_API_KEY
 
 // Debug: verificar se as variáveis estão carregadas (apenas server-side)
 if (typeof window === 'undefined') {
-  console.log('🔍 Verificando variáveis Fish Audio (server-side):')
-  console.log('  FISH_AUDIO_API_URL:', FISH_AUDIO_API_URL || 'NÃO DEFINIDO')
-  console.log('  FISH_AUDIO_API_KEY:', FISH_AUDIO_API_KEY ? `${FISH_AUDIO_API_KEY.substring(0, 10)}...` : 'NÃO DEFINIDO')
 }
 
 if (!FISH_AUDIO_API_KEY) {
@@ -67,9 +64,6 @@ export async function createVoiceClone(
   const crypto = require('crypto')
   const voiceId = crypto.randomUUID()
   
-  console.log('ℹ️ Usando clonagem instantânea (on-the-fly)')
-  console.log('ℹ️ Voice ID gerado:', voiceId)
-  console.log('ℹ️ O áudio será salvo no Supabase Storage e usado como reference_audio no TTS')
   
   // Retornar sucesso - o áudio será salvo pelo backend
   return {
@@ -150,10 +144,8 @@ export async function generateTTS(
   // 🚨 CRÍTICO: Se for model_id da Fish, usar reference_id (não reference_audio)
   if (isFishModelId) {
     requestBody.reference_id = voiceId // ✅ Usar reference_id conforme documentação
-    console.log(`   ✅ Usando reference_id da Fish API: ${voiceId}`)
   } else if (referenceAudio) {
     // Clonagem instantânea: usar reference_audio (base64)
-    console.log(`   ✅ Usando clonagem instantânea com reference_audio`)
   } else {
     // Sem model_id e sem reference_audio: erro
     throw new Error('É necessário fornecer referenceAudio para clonagem instantânea OU usar um reference_id da Fish API.')
@@ -171,7 +163,6 @@ export async function generateTTS(
       // Se for array de ReferenceAudio (objetos com audio e text)
       if (typeof firstItem === 'object' && 'audio' in firstItem) {
         // Formato: ReferenceAudio[]
-        console.log(`🎯 Usando ${referenceAudio.length} referências (formato ReferenceAudio)`)
         
         // A REST API pode aceitar múltiplas referências
         // Por enquanto, usar a primeira referência (mais representativa)
@@ -182,13 +173,10 @@ export async function generateTTS(
         
         if (ref.text) {
           requestBody.reference_text = ref.text
-          console.log(`   📝 Usando transcrição da primeira referência`)
         }
         
         // Se tiver múltiplas referências, logar
         if (referenceAudio.length > 1) {
-          console.log(`   ⚠️ Múltiplas referências fornecidas (${referenceAudio.length}), usando a primeira`)
-          console.log(`   💡 Dica: Para melhor qualidade, crie um modelo persistente com todas as referências`)
         }
         
       } else {
@@ -206,8 +194,6 @@ export async function generateTTS(
           }
         }
         
-        console.log(`🎯 Usando o áudio de referência mais representativo (${referenceAudio.length} áudios disponíveis)`)
-        console.log(`   Tamanho do áudio selecionado: ${(maxLength / 1024 / 1024).toFixed(2)} MB`)
         
         requestBody.reference_audio = bestAudio instanceof Buffer ? bestAudio.toString('base64') : bestAudio
         
@@ -220,14 +206,11 @@ export async function generateTTS(
           } else {
             requestBody.reference_text = referenceText as string
           }
-          console.log(`   📝 Usando transcrição fornecida para melhor resultado`)
         }
       }
       
     } else if (referenceAudio instanceof Buffer) {
       // Áudio único (Buffer)
-      console.log(`🎯 Usando áudio único de referência`)
-      console.log(`   Tamanho: ${(referenceAudio.length / 1024 / 1024).toFixed(2)} MB`)
       requestBody.reference_audio = referenceAudio.toString('base64')
       
       if (referenceText) {
@@ -314,13 +297,10 @@ export async function generateTTS(
   // Para preservar sotaque moçambicano, deve especificar ou não especificar e deixar o modelo detectar do áudio
   if (options?.language) {
     requestBody.language = options.language
-    console.log(`   🌍 Idioma especificado: "${options.language}" (preserva sotaque)`)
   } else {
     // IMPORTANTE: Se não especificar idioma, o modelo deve detectar do áudio de referência
     // Mas pode assumir pt-BR como padrão (problema!)
     // Para sotaque moçambicano, pode ser necessário especificar ou deixar em branco
-    console.log(`   ⚠️ Idioma não especificado - modelo deve detectar do áudio de referência`)
-    console.log(`   ⚠️ Se vier com sotaque brasileiro, especifique o idioma explicitamente`)
   }
 
   // 🚨 CRÍTICO: Headers conforme documentação oficial
@@ -332,30 +312,12 @@ export async function generateTTS(
   }
 
   // DEBUG: Log completo do request antes de enviar
-  console.log(`📤 Enviando requisição para Fish Audio API:`)
-  console.log(`   Endpoint: ${endpoint}`)
-  console.log(`   🎯 Modelo: "s1" (header)`)
-  console.log(`   📝 Texto: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}" (${text.length} caracteres)`)
-  console.log(`   🔊 Parâmetros de áudio:`)
-  console.log(`      - Velocidade: ${requestBody.speed}x (padrão: 1.0)`)
-  console.log(`      - Volume: ${requestBody.volume} (padrão: 0, faixa: -10 a 10)`)
-  console.log(`      - Temperatura: ${requestBody.temperature} (padrão: 0.1, determinístico)`)
-  console.log(`      - Top-p: ${requestBody.top_p} (padrão: 0.9)`)
-  console.log(`      - Formato: ${requestBody.format}`)
-  console.log(`      - Normalize: ${requestBody.normalize}`)
-  console.log(`      - Latency: ${requestBody.latency}`)
   
   if (requestBody.reference_id) {
-    console.log(`   🎤 Reference ID: ${requestBody.reference_id} ✅`)
   } else if (requestBody.reference_audio) {
-    console.log(`   🎤 Reference Audio: Sim ✅`)
-    console.log(`      - Tamanho: ${(requestBody.reference_audio.length / 1024).toFixed(2)} KB (base64)`)
-    console.log(`      - Transcrição: ${requestBody.reference_text ? 'Sim ✅' : 'Não ⚠️ (recomendado)'}`)
   } else {
-    console.log(`   ⚠️ Nenhuma referência fornecida`)
   }
   
-  console.log(`   ⚠️ IMPORTANTE: Modelo "s1" deve preservar gênero, timbre e sotaque`)
   
   try {
     const response = await fetch(endpoint, {
@@ -364,8 +326,6 @@ export async function generateTTS(
       body: JSON.stringify(requestBody),
     })
     
-    console.log(`📥 Resposta recebida: ${response.status} ${response.statusText}`)
-    console.log(`   Content-Type: ${response.headers.get('content-type')}`)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -386,7 +346,6 @@ export async function generateTTS(
       throw new Error(errorMessage)
     }
     
-    console.log(`✅ Requisição bem-sucedida! Processando resposta...`)
 
     // Verificar se a resposta é áudio binário
     const contentType = response.headers.get('content-type')
@@ -439,5 +398,4 @@ export function generateTextHash(text: string): string {
     return Math.abs(hash).toString(36)
   }
 }
-
 

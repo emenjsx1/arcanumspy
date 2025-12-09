@@ -93,3 +93,6 @@ COMMENT ON FUNCTION public.handle_new_user() IS 'Cria perfil automaticamente qua
 
 
 
+
+
+

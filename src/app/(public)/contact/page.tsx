@@ -86,7 +86,7 @@ export default function ContactPage() {
     {
       icon: Mail,
       title: "Email",
-      content: "suporte@swipevaultpro.com",
+      content: "suporte@arcanumspy.com",
     },
     {
       icon: Phone,

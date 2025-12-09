@@ -56,3 +56,6 @@ WHERE u.email IN ('emenjoseph7+conta2@gmail.com', 'emenmurromua@gmail.com');
 
 
 
+
+
+

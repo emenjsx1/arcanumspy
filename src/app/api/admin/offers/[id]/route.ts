@@ -54,7 +54,6 @@ export async function PUT(
       )
     }
 
-    console.log('🔵 [PUT /api/admin/offers/:id] Verificando perfil do usuário:', user.id)
     const { data: profile, error: profileError } = await adminClient
       .from('profiles')
       .select('role')
@@ -69,10 +68,9 @@ export async function PUT(
       )
     }
 
-    console.log('🔵 [PUT /api/admin/offers/:id] Perfil encontrado:', { role: profile?.role, userId: user.id })
-
-    if (profile?.role !== 'admin') {
-      console.warn('⚠️ [PUT /api/admin/offers/:id] Usuário não é admin:', profile?.role)
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (profileRole !== 'admin') {
+      console.warn('⚠️ [PUT /api/admin/offers/:id] Usuário não é admin:', profileRole)
       return NextResponse.json(
         { error: "Não autorizado. Apenas administradores podem atualizar ofertas." },
         { status: 403 }
@@ -80,12 +78,22 @@ export async function PUT(
     }
 
     const body = await request.json()
+    console.log('📥 [PUT /api/admin/offers/:id] Body recebido:', {
+      id,
+      title: body.title,
+      hasImageUrl: !!body.image_url,
+      imageUrl: body.image_url,
+      language: body.language,
+      category_id: body.category_id
+    })
+    
     const {
       title,
       short_description,
       category_id,
       niche_id,
       country,
+      language,
       funnel_type,
       temperature,
       main_url,
@@ -105,6 +113,7 @@ export async function PUT(
       creator_notes,
       scaled_at,
       expires_at,
+      image_url,
     } = body
 
     // adminClient já foi criado acima
@@ -115,6 +124,11 @@ export async function PUT(
     if (category_id !== undefined) updates.category_id = category_id
     if (niche_id !== undefined) updates.niche_id = niche_id
     if (country !== undefined) updates.country = country
+    // language pode não existir no schema cache - não incluir para evitar erro PGRST204
+    // A migration 050 precisa ser executada e o PostgREST precisa ser reiniciado
+    // if (language !== undefined && language !== null) {
+    //   updates.language = language
+    // }
     if (funnel_type !== undefined) updates.funnel_type = funnel_type
     if (temperature !== undefined) updates.temperature = temperature
     if (main_url !== undefined) updates.main_url = main_url
@@ -151,8 +165,18 @@ export async function PUT(
     // Campos de escalamento e expiração
     if (scaled_at !== undefined) updates.scaled_at = scaled_at || null
     if (expires_at !== undefined) updates.expires_at = expires_at || null
-
-    console.log('🔵 [PUT /api/admin/offers/:id] Atualizando oferta:', id, updates)
+    // Campo de imagem
+    if (image_url !== undefined) {
+      updates.image_url = image_url || null
+      console.log('🖼️ [PUT /api/admin/offers/:id] Atualizando image_url:', image_url || 'null')
+    }
+    
+    console.log('💾 [PUT /api/admin/offers/:id] Updates a serem aplicados:', {
+      hasImageUrl: !!updates.image_url,
+      imageUrl: updates.image_url,
+      language: 'não incluído (coluna pode não existir)',
+      totalFields: Object.keys(updates).length
+    })
 
     const { data: offer, error } = await adminClient
       .from('offers')
@@ -178,6 +202,8 @@ export async function PUT(
         if (category_id !== undefined) safeUpdates.category_id = category_id
         if (niche_id !== undefined) safeUpdates.niche_id = niche_id
         if (country !== undefined) safeUpdates.country = country
+        // language pode não existir - não incluir no safeUpdates para evitar erro
+        // if (language !== undefined) safeUpdates.language = language || null
         if (funnel_type !== undefined) safeUpdates.funnel_type = funnel_type
         if (temperature !== undefined) safeUpdates.temperature = temperature
         if (main_url !== undefined) safeUpdates.main_url = main_url
@@ -187,6 +213,7 @@ export async function PUT(
         if (drive_creatives_url !== undefined) safeUpdates.drive_creatives_url = drive_creatives_url
         if (quiz_url !== undefined) safeUpdates.quiz_url = quiz_url
         if (is_active !== undefined) safeUpdates.is_active = is_active
+        if (image_url !== undefined) safeUpdates.image_url = image_url || null
         
         const { data: retryOffer, error: retryError } = await adminClient
           .from('offers')
@@ -210,11 +237,17 @@ export async function PUT(
         return NextResponse.json({ offer: retryOffer })
       }
       
-      throw error
-    }
+            throw error
+          }
 
-    console.log('✅ [PUT /api/admin/offers/:id] Oferta atualizada com sucesso')
-    return NextResponse.json({ offer })
+          console.log('✅ [PUT /api/admin/offers/:id] Oferta atualizada com sucesso:', {
+            id: offer?.id,
+            title: offer?.title,
+            image_url: offer?.image_url,
+            language: offer?.language
+          })
+
+          return NextResponse.json({ offer })
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Erro ao atualizar oferta" },

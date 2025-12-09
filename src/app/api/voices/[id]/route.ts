@@ -41,7 +41,6 @@ export async function DELETE(
       )
     }
     
-    console.log('✅ Usuário autenticado para DELETE:', user.id)
 
     const voiceId = params.id
 

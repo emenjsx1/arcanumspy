@@ -40,12 +40,24 @@ export async function toggleFavorite(offerId: string): Promise<boolean> {
     if (!user) throw new Error('User not authenticated')
 
     // Check if already favorited
-    const { data: existing } = await supabase
+    const { data: existingList, error: checkError } = await supabase
       .from('favorites')
       .select('id')
       .eq('user_id', user.id)
       .eq('offer_id', offerId)
-      .single()
+      .limit(1)
+
+    // Se houver erro mas não for "não encontrado", lançar erro
+    if (checkError && checkError.code !== 'PGRST116') {
+      // Se for erro 406 ou 500, pode ser problema de RLS ou tabela, tentar continuar
+      if (checkError.code === 'PGRST301' || checkError.code === 'PGRST202') {
+        console.warn('⚠️ [toggleFavorite] Erro ao verificar favorito, assumindo que não existe:', checkError.message)
+      } else {
+        throw checkError
+      }
+    }
+
+    const existing = existingList && existingList.length > 0 ? existingList[0] : null
 
     if (existing) {
       // Remove from favorites
@@ -85,11 +97,24 @@ export async function isFavorite(offerId: string): Promise<boolean> {
       .select('id')
       .eq('user_id', user.id)
       .eq('offer_id', offerId)
-      .single()
+      .limit(1)
 
-    if (error && error.code !== 'PGRST116') throw error
+    // Se houver erro mas não for "não encontrado", retornar false
+    if (error) {
+      // PGRST116 = nenhum resultado encontrado (não é erro)
+      // PGRST301 = erro de RLS/permissão
+      // PGRST202 = tabela não encontrada
+      if (error.code === 'PGRST116') {
+        return false
+      }
+      // Para outros erros, logar e retornar false (não bloquear)
+      if (error.code !== 'PGRST301' && error.code !== 'PGRST202') {
+        console.warn('⚠️ [isFavorite] Erro ao verificar favorito:', error.message)
+      }
+      return false
+    }
 
-    return !!data
+    return !!(data && data.length > 0)
   } catch (error) {
     console.error('Error checking favorite:', error)
     return false
@@ -113,5 +138,4 @@ export async function updateFavoriteNotes(offerId: string, notes: string) {
     throw error
   }
 }
-
 

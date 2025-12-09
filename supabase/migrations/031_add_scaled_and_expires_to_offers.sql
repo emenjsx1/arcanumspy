@@ -35,3 +35,6 @@ COMMENT ON COLUMN public.offers.expires_at IS 'Timestamp quando a oferta expira 
 
 
 
+
+
+

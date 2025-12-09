@@ -22,7 +22,8 @@ export async function GET(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }

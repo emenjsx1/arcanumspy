@@ -23,6 +23,7 @@ export interface OfferFilters {
   category?: string
   niche_id?: string
   country?: string
+  language?: string
   funnel_type?: string
   temperature?: string
   product_type?: string
@@ -53,6 +54,9 @@ export async function getOffers(filters?: OfferFilters, limit = 50, offset = 0) 
     }
     if (filters?.country) {
       query = query.eq('country', filters.country)
+    }
+    if (filters?.language) {
+      query = query.eq('language', filters.language)
     }
     if (filters?.funnel_type) {
       query = query.eq('funnel_type', filters.funnel_type)
@@ -86,6 +90,9 @@ export async function getOffers(filters?: OfferFilters, limit = 50, offset = 0) 
       }
       if (filters?.country) {
         fallbackQuery = fallbackQuery.eq('country', filters.country)
+      }
+      if (filters?.language) {
+        fallbackQuery = fallbackQuery.eq('language', filters.language)
       }
       if (filters?.funnel_type) {
         fallbackQuery = fallbackQuery.eq('funnel_type', filters.funnel_type)
@@ -143,7 +150,6 @@ export async function getOfferById(id: string): Promise<OfferWithCategory | null
 
 export async function getHotOffers(limit = 10): Promise<OfferWithCategory[]> {
   const startTime = Date.now()
-  console.log(`⏱️ [getHotOffers] Iniciando busca de ${limit} ofertas quentes...`)
   
   try {
     const { data, error } = await supabase
@@ -177,14 +183,12 @@ export async function getHotOffers(limit = 10): Promise<OfferWithCategory[]> {
         }
         
         const time = Date.now() - startTime
-        console.log(`✅ [getHotOffers] ${fallbackData?.length || 0} ofertas encontradas em ${time}ms`)
         return (fallbackData || []) as OfferWithCategory[]
       }
       throw error
     }
 
     const time = Date.now() - startTime
-    console.log(`✅ [getHotOffers] ${data?.length || 0} ofertas quentes encontradas em ${time}ms`)
     return (data || []) as OfferWithCategory[]
   } catch (error) {
     console.error('❌ [getHotOffers] Erro ao buscar ofertas quentes:', error)
@@ -194,14 +198,11 @@ export async function getHotOffers(limit = 10): Promise<OfferWithCategory[]> {
 
 export async function getNewOffers(limit = 10, days = 7): Promise<OfferWithCategory[]> {
   const startTime = Date.now()
-  console.log(`⏱️ [getNewOffers] Iniciando busca de ${limit} ofertas novas (últimos ${days} dias)...`)
   
   try {
     const dateLimit = new Date()
     dateLimit.setDate(dateLimit.getDate() - days)
     dateLimit.setHours(0, 0, 0, 0) // Início do dia para incluir todas as ofertas do dia
-
-    console.log(`🔍 [getNewOffers] Buscando ofertas criadas após: ${dateLimit.toISOString()}`)
 
     const { data, error } = await supabase
       .from('offers')
@@ -220,10 +221,6 @@ export async function getNewOffers(limit = 10, days = 7): Promise<OfferWithCateg
     }
 
     const time = Date.now() - startTime
-    console.log(`✅ [getNewOffers] ${data?.length || 0} ofertas novas encontradas em ${time}ms`, {
-      dateLimit: dateLimit.toISOString(),
-      offers: data?.map(o => ({ id: o.id, title: o.title, created_at: o.created_at }))
-    })
 
     return (data || []) as OfferWithCategory[]
   } catch (error) {
@@ -234,7 +231,6 @@ export async function getNewOffers(limit = 10, days = 7): Promise<OfferWithCateg
 
 export async function getScaledOffers(limit = 10): Promise<OfferWithCategory[]> {
   const startTime = Date.now()
-  console.log(`⏱️ [getScaledOffers] Iniciando busca de ${limit} ofertas escalando...`)
   
   try {
     // Simplified query - just get recent active offers
@@ -254,7 +250,6 @@ export async function getScaledOffers(limit = 10): Promise<OfferWithCategory[]> 
     }
 
     const time = Date.now() - startTime
-    console.log(`✅ [getScaledOffers] ${data?.length || 0} ofertas encontradas em ${time}ms`)
     return (data || []) as OfferWithCategory[]
   } catch (error) {
     console.error('❌ [getScaledOffers] Erro ao buscar ofertas escalando:', error)
@@ -271,20 +266,26 @@ export async function registerOfferView(offerId: string) {
     let alreadyViewed = false
     try {
       // Verificar em user_activities primeiro (mais preciso)
-      const { data: existingActivity } = await supabase
+      const { data: existingActivities, error: activitiesError } = await supabase
         .from('user_activities')
         .select('id')
         .eq('user_id', user.id)
         .eq('offer_id', offerId)
         .eq('type', 'OFFER_VIEW')
         .limit(1)
-        .single()
 
-      if (existingActivity) {
+      // Se houver erro mas não for de tabela inexistente, logar
+      if (activitiesError) {
+        // Se a tabela não existir, ignorar erro e continuar
+        if (activitiesError.code !== '42P01' && activitiesError.code !== 'PGRST202') {
+          console.warn('⚠️ [registerOfferView] Erro ao verificar user_activities:', activitiesError.message)
+        }
+      } else if (existingActivities && existingActivities.length > 0) {
         alreadyViewed = true
-        console.log('ℹ️ [registerOfferView] Oferta já foi visualizada antes, não descontando créditos')
-      } else {
-        // Verificar em offer_views como fallback
+      }
+
+      // Se não encontrou em user_activities, verificar em offer_views como fallback
+      if (!alreadyViewed) {
         const { count } = await supabase
           .from('offer_views')
           .select('*', { count: 'exact', head: true })
@@ -293,7 +294,6 @@ export async function registerOfferView(offerId: string) {
         
         if (count && count > 0) {
           alreadyViewed = true
-          console.log('ℹ️ [registerOfferView] Oferta já foi visualizada antes (offer_views), não descontando créditos')
         }
       }
     } catch (checkError: any) {
@@ -356,7 +356,6 @@ export async function registerOfferView(offerId: string) {
                 credits_used: 1,
                 metadata: { offer_id: offerId, action: 'view', first_view: true }
               })
-            console.log('✅ [registerOfferView] Crédito descontado e atividade registrada')
           } catch (activityError: any) {
             // Se a tabela não existir ainda, apenas logar (não bloquear)
             if (activityError?.code !== '42P01' && activityError?.code !== 'PGRST202') {
@@ -397,5 +396,4 @@ export async function registerOfferView(offerId: string) {
     console.error('❌ [registerOfferView] Erro ao registrar visualização:', error)
   }
 }
-
 

@@ -41,3 +41,6 @@ COMMENT ON TABLE public.profiles IS 'Perfis de usuários. Criados manualmente no
 
 
 
+
+
+

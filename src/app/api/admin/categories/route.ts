@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (!profile || profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }
@@ -73,7 +74,8 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (!profile || profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }
@@ -99,7 +101,7 @@ export async function POST(request: NextRequest) {
         description: description || null,
         emoji: emoji || null,
         is_premium: is_premium || false,
-      })
+      } as never)
       .select()
       .single()
 
@@ -138,7 +140,8 @@ export async function PUT(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (!profile || profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }
@@ -159,15 +162,22 @@ export async function PUT(request: NextRequest) {
     const { name, slug, description, emoji, is_premium } = body
 
     const adminClient = createAdminClient()
+    const updateData: {
+      name?: string
+      slug?: string
+      description?: string | null
+      emoji?: string | null
+      is_premium?: boolean
+    } = {}
+    if (name) updateData.name = name
+    if (slug) updateData.slug = slug
+    if (description !== undefined) updateData.description = description
+    if (emoji !== undefined) updateData.emoji = emoji
+    if (is_premium !== undefined) updateData.is_premium = is_premium
+    
     const { data: category, error } = await adminClient
       .from('categories')
-      .update({
-        ...(name && { name }),
-        ...(slug && { slug }),
-        ...(description !== undefined && { description }),
-        ...(emoji !== undefined && { emoji }),
-        ...(is_premium !== undefined && { is_premium }),
-      })
+      .update(updateData as never)
       .eq('id', id)
       .select()
       .single()
@@ -183,6 +193,9 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
+
+
+
 
 
 

@@ -1,6 +1,6 @@
 # Scraper da Facebook Ad Library
 
-Este documento descreve como funciona o coletor automático de anúncios do Facebook e como configurá-lo para alimentar diretamente as bibliotecas existentes do SwipeVault.
+Este documento descreve como funciona o coletor automático de anúncios do Facebook e como configurá-lo para alimentar diretamente as bibliotecas existentes do ArcanumSpy.
 
 ## Visão geral
 

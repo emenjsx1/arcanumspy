@@ -236,3 +236,10 @@ export const NICHES = [
   'Criptomoedas',
 ]
 
+// Idiomas disponíveis para ofertas
+export const LANGUAGES = [
+  { code: 'pt', name: 'Português', flag: '🇵🇹' },
+  { code: 'en', name: 'Inglês', flag: '🇺🇸' },
+  { code: 'es', name: 'Espanhol', flag: '🇪🇸' },
+]
+

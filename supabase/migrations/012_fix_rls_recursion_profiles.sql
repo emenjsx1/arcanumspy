@@ -1,3 +1,56 @@
+Analise todo o projeto, arquivo por arquivo, com o objetivo de identificar e explicar todas as causas dos erros 500 que ocorrem nos seguintes assets e rotas internas do Next.js:
+
+- /_next/static/css/app/layout.css
+- /_next/static/chunks/main-app.js
+- /_next/static/chunks/app/(public)/layout.js
+- /_next/static/chunks/app-pages-internals.js
+- /_next/static/chunks/app/(public)/page.js
+- /_next/static/chunks/app/not-found.js
+- /api/ias/remover-background
+
+Objetivo Geral:
+Descobrir exatamente o que está quebrando o build do Next.js e causando erros 500 nos arquivos do App Router e nos chunks gerados automaticamente.
+
+Tarefas obrigatórias:
+1. Ler e analisar todo o projeto do início ao fim, incluindo:
+   - Pastas app/, pages/, public/, api/, libs/, config/
+   - Middleware, rota raiz, interceptors e providers
+   - Componentes server/client
+   - Importações duplicadas, caminhos incorretos e loops de renderização
+   - Qualquer extensão do Chrome que possa estar interferindo (como enable_copy.js)
+
+2. Mapear:
+   - Arquivos que o Next.js não está conseguindo compilar
+   - Componentes client que estão sendo importados dentro de server components
+   - Erros de SSR e hydration
+   - Rotas que chamam funções inexistentes
+   - APIs que não retornam Response correta
+   - Dependências quebradas
+   - Componentes ou arquivos que não seguem padrões do App Router
+
+3. Identificar:
+   - A origem exata dos erros 500
+   - Por que o erro volta mesmo depois de apagado o .next/
+   - Se existe algum arquivo corrompido no cache, build ou rota
+   - Se existem arquivos que podem ser removidos do projeto (limpeza)
+   - O que está impedindo o Next.js de gerar os chunks da pasta "/_next/static"
+
+4. Criar um relatório detalhado contendo:
+   - Lista completa dos arquivos problemáticos
+   - Linha por linha onde o erro começa
+   - Explicações técnicas claras
+   - Por que esses chunks falham no carregamento
+   - Como resolver de forma definitiva
+
+5. Criar um plano final de correção:
+   - Ajustes de estrutura
+   - Correções em rotas, imports e componentes
+   - Limpeza de arquivos obsoletos
+   - Reorganização do projeto se necessário
+
+IMPORTANTE:
+Neste momento, você deve apenas PLANEJAR. 
+Não modifique nenhum arquivo até eu aprovar o plano.
 -- ============================================
 -- CORRIGIR RECURSÃO INFINITA NAS POLÍTICAS RLS
 -- ============================================

@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAuthStore } from "@/store/auth-store"
-import { Download, ArrowUp, ArrowDown, X, Loader2 } from "lucide-react"
+import { Download, ArrowUp, ArrowDown, X, Loader2, CreditCard, Package } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { useLocale } from "@/contexts/locale-context"
+import { supabase } from "@/lib/supabase/client"
 
 interface Plan {
   id: string
@@ -16,6 +18,9 @@ interface Plan {
   slug: string
   description?: string | null
   price_monthly_cents: number
+  max_offers_visible?: number | null
+  max_favorites?: number | null
+  [key: string]: any // Permitir propriedades adicionais
 }
 
 interface CurrentSubscription {
@@ -24,6 +29,7 @@ interface CurrentSubscription {
 
 export default function BillingPage() {
   const { profile, user } = useAuthStore()
+  const { locale, currency } = useLocale()
   const [plans, setPlans] = useState<Plan[]>([])
   const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null)
   const [payments, setPayments] = useState<any[]>([])
@@ -79,10 +85,29 @@ export default function BillingPage() {
 
   const loadPayments = async () => {
     try {
-      // TODO: Implementar quando tiver a tabela payments
-      setPayments([])
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setPayments([])
+        return
+      }
+
+      const response = await fetch('/api/billing/history', {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setPayments(data.history || [])
+      } else {
+        console.error('Error loading payment history:', response.statusText)
+        setPayments([])
+      }
     } catch (error) {
       console.error('Error loading payments:', error)
+      setPayments([])
     }
   }
 
@@ -137,8 +162,8 @@ export default function BillingPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Cobrança</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold break-words">Cobrança</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
           Gerencie sua assinatura e histórico de pagamentos
         </p>
       </div>
@@ -162,14 +187,14 @@ export default function BillingPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mt-4">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Próxima cobrança</p>
                 <p className="text-xl font-semibold">
-                  {new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(currentPlan.price_monthly_cents / 100)}
+                  {new Intl.NumberFormat(locale, { style: 'currency', currency }).format(currentPlan.price_monthly_cents / 100)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')}
+                  {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(locale)}
                 </p>
               </div>
               <div>
@@ -198,7 +223,7 @@ export default function BillingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {plans.map((plan) => {
               const isCurrent = plan.id === currentPlanId
               const isUpgrade = currentPlan && plan.price_monthly_cents > currentPlan.price_monthly_cents
@@ -213,7 +238,7 @@ export default function BillingPage() {
                     <CardDescription className="text-xs">{plan.description || ""}</CardDescription>
                     <div className="mt-3">
                       <span className="text-2xl font-bold">
-                        {new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(plan.price_monthly_cents / 100)}
+                        {new Intl.NumberFormat(locale, { style: 'currency', currency }).format(plan.price_monthly_cents / 100)}
                       </span>
                       <span className="text-muted-foreground text-sm">/mês</span>
                     </div>
@@ -271,11 +296,14 @@ export default function BillingPage() {
               Nenhum pagamento encontrado
             </div>
           ) : (
-            <Table>
+            <div className="overflow-x-auto -mx-4 md:mx-0">
+              <div className="inline-block min-w-full align-middle px-4 md:px-0">
+                <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Data</TableHead>
-                  <TableHead>Plano</TableHead>
+                  <TableHead>Descrição</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Nota Fiscal</TableHead>
@@ -286,25 +314,96 @@ export default function BillingPage() {
                 {payments.map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell>
-                      {new Date(payment.date).toLocaleDateString('pt-BR')}
+                      <div className="flex items-center gap-2">
+                        {payment.type === 'credit_purchase' ? (
+                          <CreditCard className="h-4 w-4 text-blue-500" />
+                        ) : (
+                          <Package className="h-4 w-4 text-orange-500" />
+                        )}
+                        <Badge variant="secondary" className="text-xs">
+                          {payment.type === 'credit_purchase' ? 'Créditos' : 'Assinatura'}
+                        </Badge>
+                      </div>
                     </TableCell>
-                    <TableCell>{payment.plan}</TableCell>
                     <TableCell>
-                      {new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(payment.amount)}
+                      {new Date(payment.date).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{payment.status}</Badge>
+                      <div>
+                        <p className="font-medium">{payment.description}</p>
+                        {payment.credits_amount && (
+                          <p className="text-xs text-muted-foreground">
+                            {payment.credits_amount} créditos
+                          </p>
+                        )}
+                        {payment.period_start && payment.period_end && (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(payment.period_start).toLocaleDateString('pt-BR')} - {new Date(payment.period_end).toLocaleDateString('pt-BR')}
+                          </p>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell>{payment.invoice}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon">
-                        <Download className="h-4 w-4" />
-                      </Button>
+                      <span className="font-semibold">
+                        {new Intl.NumberFormat('pt-BR', { 
+                          style: 'currency', 
+                          currency: payment.currency || 'USD' 
+                        }).format(payment.amount)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={
+                          payment.status === 'completed' || payment.status === 'paid' 
+                            ? 'default' 
+                            : payment.status === 'pending' 
+                            ? 'secondary' 
+                            : 'destructive'
+                        }
+                      >
+                        {payment.status === 'completed' || payment.status === 'paid' 
+                          ? 'Pago' 
+                          : payment.status === 'pending' 
+                          ? 'Pendente' 
+                          : payment.status === 'failed' 
+                          ? 'Falhou' 
+                          : payment.status === 'refunded' 
+                          ? 'Reembolsado' 
+                          : payment.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm font-mono">{payment.invoice}</span>
+                    </TableCell>
+                    <TableCell>
+                      {payment.invoice_url ? (
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          asChild
+                        >
+                          <a href={payment.invoice_url} target="_blank" rel="noopener noreferrer">
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" disabled>
+                          <Download className="h-4 w-4 opacity-50" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
-              </TableBody>
+                </TableBody>
             </Table>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

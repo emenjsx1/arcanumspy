@@ -22,6 +22,7 @@ interface Ticket {
   status: 'open' | 'in_progress' | 'closed'
   priority: 'low' | 'medium' | 'high'
   created_at: string
+  userEmail?: string
   user: {
     name: string
     email: string | null
@@ -233,12 +234,12 @@ export default function AdminSupportPage() {
               {tickets.map((ticket) => (
                 <TableRow key={ticket.id}>
                   <TableCell className="font-medium">#{ticket.id}</TableCell>
-                  <TableCell>{ticket.userEmail}</TableCell>
+                  <TableCell>{(ticket as Ticket).userEmail || ticket.user?.email || 'N/A'}</TableCell>
                   <TableCell>{ticket.subject}</TableCell>
                   <TableCell>
                     <Badge
                       variant={
-                        ticket.status === "resolved"
+                        ticket.status === "closed"
                           ? "default"
                           : ticket.status === "open"
                           ? "secondary"
@@ -249,8 +250,6 @@ export default function AdminSupportPage() {
                         ? "Aberto"
                         : ticket.status === "in_progress"
                         ? "Em Andamento"
-                        : ticket.status === "resolved"
-                        ? "Resolvido"
                         : "Fechado"}
                     </Badge>
                   </TableCell>
@@ -272,7 +271,7 @@ export default function AdminSupportPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {new Date(ticket.createdAt).toLocaleDateString()}
+                    {new Date(ticket.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
                     <Dialog>
@@ -285,7 +284,7 @@ export default function AdminSupportPage() {
                         <DialogHeader>
                           <DialogTitle>{ticket.subject}</DialogTitle>
                           <DialogDescription>
-                            De: {ticket.userEmail}
+                            De: {(ticket as Ticket).userEmail || ticket.user?.email || 'N/A'}
                           </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4">
@@ -293,15 +292,15 @@ export default function AdminSupportPage() {
                             <p className="text-sm font-medium mb-2">Mensagem:</p>
                             <p className="text-sm text-muted-foreground">{ticket.message}</p>
                           </div>
-                          {ticket.responses.length > 0 && (
+                          {ticket.replies && ticket.replies.length > 0 && (
                             <div>
                               <p className="text-sm font-medium mb-2">Respostas:</p>
-                              {ticket.responses.map((response) => (
+                              {ticket.replies.map((response) => (
                                 <div key={response.id} className="mb-2 p-3 bg-muted rounded">
                                   <p className="text-sm">{response.message}</p>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {response.isAdmin ? "Admin" : "Usuário"} •{" "}
-                                    {new Date(response.createdAt).toLocaleString()}
+                                    {response.from_role === 'admin' ? "Admin" : "Usuário"} •{" "}
+                                    {new Date(response.created_at).toLocaleString()}
                                   </p>
                                 </div>
                               ))}

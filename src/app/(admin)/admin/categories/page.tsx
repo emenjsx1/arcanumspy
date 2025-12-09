@@ -32,17 +32,26 @@ export default function AdminCategoriesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const { toast } = useToast()
+  // CORREÇÃO: Flags para evitar múltiplas execuções simultâneas
+  const [dataLoaded, setDataLoaded] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(false)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    // CORREÇÃO: Se já carregou os dados ou está carregando, não executar novamente
+    if (dataLoaded || isLoadingData) return
+    
     loadCategories()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoaded, isLoadingData])
 
   const loadCategories = async () => {
+    // Marcar como carregando para evitar execuções simultâneas
+    setIsLoadingData(true)
     try {
       setLoading(true)
       const categoriesData = await getAllCategories()
       setCategories(categoriesData)
+      setDataLoaded(true)
     } catch (error) {
       console.error('Error loading categories:', error)
       toast({
@@ -52,6 +61,7 @@ export default function AdminCategoriesPage() {
       })
     } finally {
       setLoading(false)
+      setIsLoadingData(false)
     }
   }
 

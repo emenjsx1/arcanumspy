@@ -1,138 +1,182 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Check } from "lucide-react"
+import { Check, Loader2 } from "lucide-react"
+import { useTranslation, useCurrency } from "@/contexts/locale-context"
 
-const medicalPlans = [
-  {
-    id: "resident",
-    name: "Resident",
-    description: "Para médicos solos, pequenos consultórios",
-    priceMonthly: 27,
-    priceYearly: 270,
-    features: [
-      "Até 50 ofertas liberadas",
-      "Acesso a categorias: Medical, Nutra, Beauty",
-      "Download limitado de assets (20/mês)",
-      "Sem análise avançada das ofertas",
-      "Suporte por email",
-    ],
-    popular: false,
-  },
-  {
-    id: "specialist",
-    name: "Specialist",
-    description: "Para clínicas e agências que atendem médicos",
-    priceMonthly: 57,
-    priceYearly: 570,
-    features: [
-      "Até 200 ofertas",
-      "Todas categorias incluídas",
-      "Acesso completo às categorias Medical e Nutra Premium",
-      "Downloads ilimitados de Scripts, Copies e Creatives",
-      "Análise curta de cada oferta",
-      "1 login adicional (time pequeno)",
-      "Suporte prioritário",
-    ],
-    popular: true,
-  },
-  {
-    id: "chief",
-    name: "Chief",
-    description: "Para redes de clínicas e grandes players",
-    priceMonthly: 97,
-    priceYearly: 970,
-    features: [
-      "Acesso TOTAL à biblioteca",
-      "Ofertas marcadas como 🔥 Médicas de alta conversão",
-      "Relatórios de quais nichos médicos performam melhor",
-      "Consultoria/treino gravado (aulas)",
-      "5 logins de equipe",
-      "Suporte 24/7",
-      "Atualizações semanais prioritárias",
-    ],
-    popular: false,
-  },
-]
+interface Plan {
+  id: string
+  name: string
+  slug: string
+  description?: string | null
+  price_monthly_cents: number
+  max_offers_visible?: number | null
+  max_favorites?: number | null
+}
 
 export default function PricingPage() {
+  const t = useTranslation()
+  const { formatPrice } = useCurrency()
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [loading, setLoading] = useState(true)
+  const [prices, setPrices] = useState<Record<string, { monthly: string }>>({})
+
+  useEffect(() => {
+    loadPlans()
+  }, [])
+
+  useEffect(() => {
+    // Carregar preços convertidos quando plans mudarem
+    if (plans.length > 0) {
+      loadPrices()
+    }
+  }, [plans, formatPrice])
+
+  const loadPlans = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/plans')
+      if (response.ok) {
+        const data = await response.json()
+        setPlans(data.plans || [])
+      }
+    } catch (error) {
+      console.error('Error loading plans:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadPrices = async () => {
+    const priceMap: Record<string, { monthly: string }> = {}
+    
+    for (const plan of plans) {
+      // Mostrar preços em USD (moeda base)
+      const monthlyPrice = await formatPrice(plan.price_monthly_cents, 'USD', 'USD')
+      priceMap[plan.id] = { monthly: monthlyPrice }
+    }
+    
+    setPrices(priceMap)
+  }
+
+  const getPlanFeatures = (plan: Plan): string[] => {
+    const features: string[] = []
+    
+    if (plan.max_offers_visible) {
+      features.push(`${plan.max_offers_visible} ofertas por mês`)
+    } else {
+      features.push('Ofertas ilimitadas')
+    }
+    
+    if (plan.max_favorites) {
+      features.push(`${plan.max_favorites} favoritos`)
+    } else {
+      features.push('Favoritos ilimitados')
+    }
+    
+    features.push('Acesso a todas as categorias')
+    features.push('Suporte por email')
+    
+    return features
+  }
+
+  if (loading) {
+    return (
+      <div className="container py-24 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
   return (
     <div className="container py-24">
       <div className="text-center mb-16">
-        <h1 className="text-4xl font-bold mb-4">Planos para Profissionais da Saúde 🩺</h1>
+        <h1 className="text-4xl font-bold mb-4">{t.pricing.title}</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Escolha o plano certo para sua clínica ou agência
+          {t.pricing.subtitle}
         </p>
       </div>
 
       {/* Plans */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-        {medicalPlans.map((plan) => (
-          <Card
-            key={plan.id}
-            className={plan.popular ? "border-primary border-2 relative" : ""}
-          >
-            {plan.popular && (
-              <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
-                Mais Popular
-              </Badge>
-            )}
-            <CardHeader>
-              <CardTitle className="text-2xl">{plan.name}</CardTitle>
-              <CardDescription>{plan.description}</CardDescription>
-              <div className="mt-4">
-                <span className="text-5xl font-bold">R$ {plan.priceMonthly}</span>
-                <span className="text-muted-foreground">/mês</span>
-                <div className="text-sm text-muted-foreground mt-2">
-                  ou R$ {plan.priceYearly}/ano (economize {Math.round((1 - plan.priceYearly / (plan.priceMonthly * 12)) * 100)}%)
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3 mb-6">
-                {plan.features.map((feature, index) => (
-                  <li key={index} className="flex items-start">
-                    <Check className="h-5 w-5 text-primary mr-2 flex-shrink-0 mt-0.5" />
-                    <span className="text-sm">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href={`/signup?plan=${plan.id}`}>
-                <Button
-                  className="w-full"
-                  size="lg"
-                  variant={plan.popular ? "default" : "outline"}
-                >
-                  Começar agora
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {plans.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Nenhum plano disponível no momento.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+          {plans.map((plan, index) => {
+            const planPrices = prices[plan.id] || { monthly: '...' }
+            const isPopular = index === Math.floor(plans.length / 2) // Plano do meio como popular
+            const features = getPlanFeatures(plan)
+            
+            return (
+              <Card
+                key={plan.id}
+                className={isPopular ? "border-primary border-2 relative" : ""}
+              >
+                {isPopular && (
+                  <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    {t.pricing.popular}
+                  </Badge>
+                )}
+                <CardHeader>
+                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                  <CardDescription>{plan.description || ""}</CardDescription>
+                  <div className="mt-4">
+                    <span className="text-5xl font-bold">{planPrices.monthly}</span>
+                    <span className="text-muted-foreground">{t.pricing.perMonth}</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-3 mb-6">
+                    {features.map((feature, featureIndex) => (
+                      <li key={featureIndex} className="flex items-start">
+                        <Check className="h-5 w-5 text-primary mr-2 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href={`/signup?plan=${plan.slug || plan.id}`}>
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      variant={isPopular ? "default" : "outline"}
+                    >
+                      {t.pricing.startNow}
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
 
       {/* FAQ */}
       <div className="max-w-3xl mx-auto">
-        <h2 className="text-2xl font-bold mb-8 text-center">Perguntas sobre Preços</h2>
+        <h2 className="text-2xl font-bold mb-8 text-center">{t.pricing.faq}</h2>
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="item-1">
-            <AccordionTrigger>Posso mudar de plano depois?</AccordionTrigger>
+            <AccordionTrigger>{t.pricing.canChangePlan}</AccordionTrigger>
             <AccordionContent>
-              Sim! Você pode fazer upgrade ou downgrade a qualquer momento. As mudanças são aplicadas imediatamente.
+              {t.pricing.canChangePlanAnswer}
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="item-2">
-            <AccordionTrigger>Há desconto para pagamento anual?</AccordionTrigger>
+            <AccordionTrigger>{t.pricing.annualDiscount}</AccordionTrigger>
             <AccordionContent>
-              Sim! Ao pagar anualmente, você economiza significativamente comparado ao pagamento mensal.
+              {t.pricing.annualDiscountAnswer}
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="item-3">
-            <AccordionTrigger>Os planos são específicos para área médica?</AccordionTrigger>
+            <AccordionTrigger>{t.pricing.medicalPlans}</AccordionTrigger>
             <AccordionContent>
-              Sim! Todos os planos incluem acesso prioritário a ofertas da categoria Medical, além de outras categorias relevantes para profissionais da saúde.
+              {t.pricing.medicalPlansAnswer}
             </AccordionContent>
           </AccordionItem>
         </Accordion>

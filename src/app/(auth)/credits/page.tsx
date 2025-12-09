@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase/client"
+import { useTranslation, useCurrency } from "@/contexts/locale-context"
 import { 
   CreditCard, 
   TrendingUp, 
@@ -30,6 +31,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { PriceDisplay } from "@/components/price-display"
 
 interface CreditBalance {
   balance: number
@@ -70,6 +72,8 @@ interface CreditTransaction {
 
 export default function CreditsPage() {
   const { toast } = useToast()
+  const t = useTranslation()
+  const { formatPrice, convertPrice } = useCurrency()
   const [loading, setLoading] = useState(true)
   const [loadingTransactions, setLoadingTransactions] = useState(false)
   const [balance, setBalance] = useState<CreditBalance | null>(null)
@@ -92,8 +96,8 @@ export default function CreditsPage() {
       
       if (!session) {
         toast({
-          title: "Não autenticado",
-          description: "Faça login para acessar",
+          title: t.common.error,
+          description: t.auth.login,
           variant: "destructive",
         })
         return
@@ -112,20 +116,47 @@ export default function CreditsPage() {
 
       const data = await response.json()
       if (data.success) {
+        // Se os valores estão zerados, buscar estatísticas calculadas
+        if (data.balance && data.balance.total_loaded === 0 && data.balance.total_consumed === 0) {
+          try {
+            const statsResponse = await fetch('/api/credits/stats', {
+              credentials: 'include',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+            })
+            
+            if (statsResponse.ok) {
+              const statsData = await statsResponse.json()
+              if (statsData.success && statsData.stats) {
+                // Atualizar balance com os valores calculados
+                data.balance = {
+                  ...data.balance,
+                  balance: statsData.stats.balance,
+                  total_loaded: statsData.stats.total_loaded,
+                  total_consumed: statsData.stats.total_consumed,
+                }
+              }
+            }
+          } catch (statsError) {
+            console.warn('⚠️ [Credits Page] Erro ao buscar estatísticas:', statsError)
+          }
+        }
+        
         setBalance(data.balance)
         setPackages(data.packages || [])
         
         // Verificar alertas
         if (data.balance.balance < 0) {
           toast({
-            title: "Saldo Negativo",
-            description: `Seu saldo está negativo: ${data.balance.balance} créditos. Carregue créditos para continuar usando a plataforma.`,
+            title: t.credits.lowBalance,
+            description: `${t.credits.balance}: ${data.balance.balance} ${t.credits.title.toLowerCase()}.`,
             variant: "destructive",
           })
         } else if (data.balance.balance <= data.balance.low_balance_threshold) {
           toast({
-            title: "Saldo Baixo",
-            description: `Seu saldo está baixo: ${data.balance.balance} créditos. Considere carregar mais créditos.`,
+            title: t.credits.lowBalance,
+            description: `${t.credits.balance}: ${data.balance.balance} ${t.credits.title.toLowerCase()}.`,
           })
         }
 
@@ -134,8 +165,8 @@ export default function CreditsPage() {
     } catch (error: any) {
       console.error('Error loading credits:', error)
       toast({
-        title: "Erro",
-        description: error.message || "Erro ao carregar créditos",
+        title: t.common.error,
+        description: error.message || t.common.error,
         variant: "destructive",
       })
     } finally {
@@ -227,13 +258,13 @@ export default function CreditsPage() {
         setShowCustomInput(false)
         setCustomCredits(100)
       } else {
-        throw new Error(data.error || "Erro ao processar pagamento")
+        throw new Error(data.error || t.credits.purchaseError)
       }
     } catch (error: any) {
       console.error('Error purchasing credits:', error)
       toast({
-        title: "Erro ao comprar",
-        description: error.message || "Erro ao processar pagamento",
+        title: t.credits.purchaseError,
+        description: error.message || t.credits.purchaseError,
         variant: "destructive",
       })
     } finally {
@@ -246,19 +277,21 @@ export default function CreditsPage() {
     return Math.round(pricePerCredit * credits)
   }
 
-  const formatCurrency = (cents: number, currency: string = 'MZN') => {
-    const value = cents / 100
-    if (currency === 'MZN') {
-      return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value)
+  const formatCurrencyDisplay = async (cents: number, currency?: string) => {
+    try {
+      return await formatPrice(cents, currency)
+    } catch (error) {
+      // Fallback
+      return new Intl.NumberFormat('pt-BR', { 
+        style: 'currency', 
+        currency: currency || 'BRL'
+      }).format(cents / 100)
     }
-    if (currency === 'BRL') {
-      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-    }
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value)
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
+    // Usar o locale detectado para formatação de data
+    return new Date(dateString).toLocaleDateString(navigator.language || 'pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -291,9 +324,9 @@ export default function CreditsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold">Meus Créditos</h1>
-        <p className="text-muted-foreground">
-          Gerencie seus créditos e monitore seu consumo
+        <h1 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold break-words">{t.credits.title}</h1>
+        <p className="text-muted-foreground text-sm md:text-base">
+          {t.credits.balance}
         </p>
       </div>
 
@@ -304,9 +337,9 @@ export default function CreditsPage() {
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               <div className="flex-1">
-                <p className="font-semibold text-destructive">Saldo Negativo</p>
+                <p className="font-semibold text-destructive">{t.credits.lowBalance}</p>
                 <p className="text-sm text-muted-foreground">
-                  Seu saldo está negativo: {balance.balance} créditos. Carregue créditos para continuar usando a plataforma.
+                  {t.credits.balance}: {balance.balance} {t.credits.title.toLowerCase()}.
                 </p>
               </div>
             </div>
@@ -315,10 +348,10 @@ export default function CreditsPage() {
       )}
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Créditos Disponíveis</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.credits.balance}</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -326,14 +359,14 @@ export default function CreditsPage() {
               {balance?.balance || 0}
             </div>
             <p className="text-xs text-muted-foreground">
-              Saldo atual
+              {t.credits.balance}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Carregado</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.credits.totalLoaded}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -341,14 +374,14 @@ export default function CreditsPage() {
               {balance?.total_loaded || 0}
             </div>
             <p className="text-xs text-muted-foreground">
-              Créditos comprados
+              {t.credits.purchase}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Consumido</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.credits.totalConsumed}</CardTitle>
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -356,7 +389,7 @@ export default function CreditsPage() {
               {balance?.total_consumed || 0}
             </div>
             <p className="text-xs text-muted-foreground">
-              Créditos utilizados
+              {t.credits.totalConsumed}
             </p>
           </CardContent>
         </Card>
@@ -365,9 +398,9 @@ export default function CreditsPage() {
       {/* Pacotes de Créditos */}
       <Card>
         <CardHeader>
-          <CardTitle>Carregar Créditos</CardTitle>
+          <CardTitle>{t.credits.purchaseCredits}</CardTitle>
           <CardDescription>
-            Escolha um pacote ou defina uma quantidade personalizada de créditos
+            {t.credits.customAmount}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -394,12 +427,20 @@ export default function CreditsPage() {
               </div>
               {packages.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Preço Estimado (baseado no pacote mais barato)</Label>
+                  <Label>{t.credits.customAmount}</Label>
                   <div className="text-2xl font-bold text-primary">
-                    {formatCurrency(calculateCustomPrice(customCredits, packages[0]), packages[0].currency)}
+                    <PriceDisplay 
+                      cents={calculateCustomPrice(customCredits, packages[0])} 
+                      originalCurrency="USD"
+                      forceCurrency="MZN"
+                    />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Preço por crédito: {formatCurrency(Math.round(packages[0].price_cents / packages[0].credits), packages[0].currency)}
+                    {t.credits.amount}: <PriceDisplay 
+                      cents={Math.round(packages[0].price_cents / packages[0].credits)} 
+                      originalCurrency="USD"
+                      forceCurrency="MZN"
+                    />
                   </p>
                 </div>
               )}
@@ -411,12 +452,12 @@ export default function CreditsPage() {
                 {purchasing && selectedPackage?.id === packages[0]?.id ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processando...
+                    {t.credits.purchasing}
                   </>
                 ) : (
                   <>
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    Comprar {customCredits} Créditos
+                    {t.credits.purchase} {customCredits} {t.credits.title.toLowerCase()}
                   </>
                 )}
               </Button>
@@ -425,8 +466,8 @@ export default function CreditsPage() {
 
           {/* Pacotes Pré-definidos */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Pacotes Pré-definidos</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <h3 className="text-lg font-semibold mb-4">{t.credits.purchaseCredits}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
               {packages.map((pkg) => {
                 const totalCredits = pkg.credits + (pkg.bonus_credits || 0)
                 return (
@@ -437,14 +478,14 @@ export default function CreditsPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div>
-                        <div className="text-3xl font-bold">{pkg.credits}</div>
+                        <div className="text-xl md:text-2xl lg:text-3xl font-bold">{pkg.credits}</div>
                         {pkg.bonus_credits > 0 && (
                           <div className="text-sm text-green-600 font-semibold">
-                            +{pkg.bonus_credits} bônus = {totalCredits} créditos
+                            +{pkg.bonus_credits} {t.credits.category.toLowerCase()} = {totalCredits} {t.credits.title.toLowerCase()}
                           </div>
                         )}
                         <div className="text-2xl font-bold text-primary mt-2">
-                          {formatCurrency(pkg.price_cents, pkg.currency)}
+                          <PriceDisplay cents={pkg.price_cents} originalCurrency="USD" forceCurrency="MZN" />
                         </div>
                       </div>
                       <Button
@@ -455,12 +496,12 @@ export default function CreditsPage() {
                         {purchasing && selectedPackage?.id === pkg.id ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Processando...
+                            {t.credits.purchasing}
                           </>
                         ) : (
                           <>
                             <ShoppingCart className="h-4 w-4 mr-2" />
-                            Comprar
+                            {t.credits.purchase}
                           </>
                         )}
                       </Button>
@@ -476,9 +517,9 @@ export default function CreditsPage() {
       {/* Histórico de Transações */}
       <Card>
         <CardHeader>
-          <CardTitle>Histórico de Transações</CardTitle>
+          <CardTitle>{t.credits.transactionHistory}</CardTitle>
           <CardDescription>
-            Veja todas as suas transações de créditos
+            {t.credits.transactions}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -488,20 +529,20 @@ export default function CreditsPage() {
             </div>
           ) : transactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Nenhuma transação encontrada
+              {t.credits.noTransactions}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto -mx-4 md:mx-0">
+              <div className="inline-block min-w-full align-middle px-4 md:px-0">
+                <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Pacote</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead className="text-right">Saldo Após</TableHead>
+                    <TableHead>{t.credits.date}</TableHead>
+                    <TableHead>{t.credits.category}</TableHead>
+                    <TableHead>{t.credits.description}</TableHead>
+                    <TableHead>{t.credits.purchase}</TableHead>
+                    <TableHead className="text-right">{t.credits.amount}</TableHead>
+                    <TableHead className="text-right">{t.credits.balanceAfter}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -514,12 +555,12 @@ export default function CreditsPage() {
                         {transaction.type === 'credit' ? (
                           <Badge variant="default" className="bg-green-600">
                             <TrendingUp className="h-3 w-3 mr-1" />
-                            Crédito
+                            {t.credits.title}
                           </Badge>
                         ) : (
                           <Badge variant="destructive">
                             <TrendingDown className="h-3 w-3 mr-1" />
-                            Débito
+                            {t.credits.totalConsumed}
                           </Badge>
                         )}
                       </TableCell>
@@ -534,11 +575,11 @@ export default function CreditsPage() {
                           <div>
                             <div className="font-medium">{transaction.package.name}</div>
                             <div className="text-xs text-muted-foreground">
-                              {transaction.package.credits} créditos
-                              {transaction.package.bonus_credits > 0 && ` + ${transaction.package.bonus_credits} bônus`}
+                              {transaction.package.credits} {t.credits.title.toLowerCase()}
+                              {transaction.package.bonus_credits > 0 && ` + ${transaction.package.bonus_credits} ${t.credits.category.toLowerCase()}`}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {formatCurrency(transaction.package.price_cents, transaction.package.currency)}
+                              <PriceDisplay cents={transaction.package.price_cents} originalCurrency="USD" forceCurrency="MZN" />
                             </div>
                           </div>
                         ) : (
@@ -555,6 +596,7 @@ export default function CreditsPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </div>
           )}
         </CardContent>
@@ -562,7 +604,4 @@ export default function CreditsPage() {
     </div>
   )
 }
-
-
-
 

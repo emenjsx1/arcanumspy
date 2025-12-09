@@ -10,78 +10,38 @@ export interface OfferWithViews extends OfferWithCategory {
 
 export async function getTopOffers(limit = 10): Promise<OfferWithViews[]> {
   const startTime = Date.now()
-  console.log('⏱️ [Admin Top Offers] Iniciando busca de ofertas mais vistas...')
   
   try {
-    // Buscar todas as views e contar por oferta
-    const { data: viewsData, error: viewsError } = await supabase
-      .from('offer_views')
-      .select('offer_id')
-
-    if (viewsError) {
-      console.warn('⚠️ [Admin Top Offers] Erro ao buscar views, tentando alternativa:', viewsError)
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      console.warn('⚠️ [Admin Top Offers] Sem sessão')
+      return []
     }
 
-    // Contar views por oferta
-    const viewCounts: Record<string, number> = {}
-    viewsData?.forEach(v => {
-      if (v.offer_id) {
-        viewCounts[v.offer_id] = (viewCounts[v.offer_id] || 0) + 1
-      }
+    const response = await fetch(`/api/admin/offers?top=${limit}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
     })
 
-    // Ordenar ofertas por número de views (mais vistas primeiro)
-    const sortedOfferIds = Object.entries(viewCounts)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, limit)
-      .map(([offerId]) => offerId)
-
-    // Buscar detalhes das ofertas mais vistas
-    let offersResult
-    if (sortedOfferIds.length > 0) {
-      // Buscar ofertas específicas que têm mais views
-      offersResult = await supabase
-        .from('offers')
-        .select(`
-          *,
-          category:categories(id, name, slug, emoji)
-        `)
-        .in('id', sortedOfferIds)
-        .eq('is_active', true)
-    } else {
-      // Se não houver views, buscar ofertas recentes como fallback
-      offersResult = await supabase
-        .from('offers')
-        .select(`
-          *,
-          category:categories(id, name, slug, emoji)
-        `)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(limit)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
     }
 
-    if (offersResult.error) throw offersResult.error
-
-    // Mapear ofertas com contagem de views
-    const result = (offersResult.data || []).map(offer => ({
-      ...offer,
-      views_count: viewCounts[offer.id] || 0,
-    })) as OfferWithViews[]
-
-    // Ordenar por views (mais vistas primeiro) - garantir ordem correta
-    result.sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
+    const data = await response.json()
+    const offers = (data.offers || []).slice(0, limit) as OfferWithViews[]
 
     const totalTime = Date.now() - startTime
-    console.log(`✅ [Admin Top Offers] ${result.length} ofertas mais vistas carregadas em ${totalTime}ms`, {
-      topOffers: result.slice(0, 5).map(o => ({ title: o.title, views: o.views_count }))
-    })
 
-    return result.slice(0, limit)
+    return offers
   } catch (error) {
     console.error('❌ [Admin Top Offers] Erro ao buscar ofertas:', error)
     return []
   }
 }
-
 

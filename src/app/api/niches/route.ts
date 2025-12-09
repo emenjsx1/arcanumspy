@@ -42,8 +42,6 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const categoryId = searchParams.get('category_id')
 
-    console.log('🔍 [API /niches] Buscando nichos...', { categoryId })
-
     // Usar adminClient para bypassar RLS e garantir que todos os nichos sejam retornados
     let adminClient
     try {
@@ -57,7 +55,6 @@ export async function GET(request: Request) {
       } else {
         niches = await getAllNiches()
       }
-      console.log('📊 [API /niches] Nichos encontrados (cliente normal):', niches.length)
       return NextResponse.json({ niches })
     }
 
@@ -91,14 +88,8 @@ export async function GET(request: Request) {
       } else {
         fallbackNiches = await getAllNiches()
       }
-      console.log('📊 [API /niches] Nichos encontrados (fallback):', fallbackNiches.length)
       return NextResponse.json({ niches: fallbackNiches })
     }
-
-    console.log('✅ [API /niches] Nichos encontrados:', niches?.length || 0, {
-      categoryId,
-      niches: niches?.map(n => ({ id: n.id, name: n.name, category_id: n.category_id }))
-    })
 
     return NextResponse.json({ niches: niches || [] })
   } catch (error: any) {

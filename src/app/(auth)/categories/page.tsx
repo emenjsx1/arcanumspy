@@ -10,7 +10,7 @@ export default function CategoriesPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <h1 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent break-words">
           Categorias
         </h1>
         <p className="text-muted-foreground text-lg">
@@ -24,7 +24,7 @@ export default function CategoriesPage() {
             <Card className="hover:shadow-xl transition-all border-2 hover:border-primary/50 cursor-pointer h-full group hover:scale-[1.02] bg-gradient-to-br from-background via-background to-muted/20">
               <CardHeader className="p-3 md:p-6">
                 <div className="flex items-start justify-between mb-2">
-                  <div className="text-3xl md:text-4xl lg:text-5xl">{category.icon}</div>
+                  <div className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl">{category.icon}</div>
                   <ArrowRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
                 <CardTitle className="text-base md:text-lg lg:text-xl">{category.name}</CardTitle>

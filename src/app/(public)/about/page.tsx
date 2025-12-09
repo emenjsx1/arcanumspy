@@ -68,7 +68,7 @@ export default function AboutPage() {
                   Ao invés de começar do zero, você pode estudar ofertas que já funcionam, entender os padrões que fazem elas converterem, e aplicar esses insights nas suas próprias campanhas. É como ter acesso ao &quot;código-fonte&quot; das melhores ofertas do mercado.
                 </p>
                 <p className="text-lg text-[#6b6b6b] leading-relaxed">
-                  No SwipeVault Pro, não apenas oferecemos acesso a essas ofertas, mas também fornecemos análises detalhadas, ferramentas de IA para criar vozes e copy, e monitoramento de criativos que estão realmente escalando.
+                  No ArcanumSpy, não apenas oferecemos acesso a essas ofertas, mas também fornecemos análises detalhadas, ferramentas de IA para criar vozes e copy, e monitoramento de criativos que estão realmente escalando.
                 </p>
               </div>
             </div>
@@ -85,7 +85,7 @@ export default function AboutPage() {
                 Como Funciona
               </h2>
               <p className="text-lg text-[#6b6b6b] max-w-2xl mx-auto">
-                Entenda como o SwipeVault Pro pode transformar sua forma de criar ofertas
+                Entenda como o ArcanumSpy pode transformar sua forma de criar ofertas
               </p>
             </div>
           </ScrollAnimation>
@@ -203,7 +203,7 @@ export default function AboutPage() {
                   Resultados que Gera
                 </h2>
                 <p className="text-lg text-[#6b6b6b]">
-                  O que nossos usuários conseguem com o SwipeVault Pro
+                  O que nossos usuários conseguem com o ArcanumSpy
                 </p>
               </div>
               <Card className="bg-gradient-to-br from-[#ff5a1f] to-[#ff4d29] text-white border-0 shadow-xl rounded-2xl p-8">
@@ -235,15 +235,15 @@ export default function AboutPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-[#0b0c10]">
+      <section className="py-24 bg-white dark:bg-black">
         <div className="container px-4 md:px-6">
           <ScrollAnimation>
             <div className="max-w-3xl mx-auto text-center">
-              <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+              <h2 className="text-4xl md:text-5xl font-bold text-[#0b0c10] dark:text-white mb-6">
                 Pronto para começar?
               </h2>
-              <p className="text-lg text-gray-400 mb-8 leading-relaxed">
-                Junte-se a centenas de profissionais que já estão escalando com o SwipeVault Pro
+              <p className="text-lg text-[#6b6b6b] dark:text-gray-400 mb-8 leading-relaxed">
+                Junte-se a centenas de profissionais que já estão escalando com o ArcanumSpy
               </p>
               <Link href="/signup">
                 <motion.div

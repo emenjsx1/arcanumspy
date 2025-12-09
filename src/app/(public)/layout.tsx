@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Moon, Sun, User, CreditCard, LogOut, Shield } from "lucide-react"
 import { useTheme } from "next-themes"
+import { supabase } from "@/lib/supabase/client"
 
 export default function PublicLayout({
   children,
@@ -29,12 +30,38 @@ export default function PublicLayout({
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    let isMounted = true
     const initAuth = async () => {
-      await initialize()
-      setMounted(true)
+      try {
+        // Sempre inicializar auth para garantir que a sessão seja verificada e preservada
+        // Isso garante que mesmo navegando para a landing page, o usuário continue logado
+        await initialize()
+      } catch (error) {
+        console.error('Erro ao inicializar auth no layout público:', error)
+      } finally {
+        if (isMounted) {
+          setMounted(true)
+        }
+      }
     }
     initAuth()
-  }, [initialize])
+    
+    // Escutar mudanças de autenticação para atualizar o estado
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (isMounted) {
+        // Forçar re-inicialização quando houver mudança de estado
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+          initialize().catch(console.error)
+        }
+      }
+    })
+    
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Executar apenas uma vez na montagem
 
   const handleLogout = async () => {
     await logout()
@@ -114,9 +141,9 @@ export default function PublicLayout({
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/credits" className="cursor-pointer">
+                    <Link href="/billing" className="cursor-pointer">
                       <CreditCard className="mr-2 h-4 w-4" />
-                      Créditos
+                      Planos e Cobrança
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

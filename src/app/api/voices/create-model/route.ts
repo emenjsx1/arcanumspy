@@ -12,7 +12,6 @@ const FISH_AUDIO_API_KEY = process.env.FISH_AUDIO_API_KEY
 const FISH_AUDIO_API_URL = process.env.FISH_AUDIO_API_URL || "https://api.fish.audio"
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 POST /api/voices/create-model - Iniciando...')
   
   try {
     const supabase = await createClient()
@@ -37,18 +36,11 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    console.log('📦 Criando modelo:', {
-      name,
-      urlsCount: urls.length,
-      transcriptsCount: transcripts?.length || 0
-    })
-    
     // Baixar e converter arquivos para base64
     const audiosPayload: any[] = []
     
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i]
-      console.log(`📥 Baixando áudio ${i + 1}/${urls.length}: ${url}`)
       
       const response = await fetch(url)
       if (!response.ok) {
@@ -72,7 +64,6 @@ export async function POST(request: NextRequest) {
       audios: audiosPayload
     }
     
-    console.log('🚀 Chamando Fish API /v1/models...')
     
     let modelId: string | null = null
     let fishResponse: any = null
@@ -96,13 +87,11 @@ export async function POST(request: NextRequest) {
       fishResponse = await response.json()
       modelId = fishResponse.id || fishResponse.model_id || fishResponse.result?.id
       
-      console.log('✅ Modelo criado na Fish:', modelId)
       
     } catch (error: any) {
       console.error('❌ Erro ao criar modelo na Fish:', error)
       // Fallback: usar modelo local
       modelId = `local-${Date.now()}`
-      console.log('⚠️ Usando modelo local:', modelId)
     }
     
     if (!modelId) {
@@ -124,7 +113,6 @@ export async function POST(request: NextRequest) {
       }
     })
     
-    console.log('✅ Modelo salvo no banco:', voiceModel.id)
     
     return NextResponse.json({
       success: true,

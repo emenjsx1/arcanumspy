@@ -28,28 +28,88 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       profile: null,
       isAuthenticated: false,
-      isLoading: true,
+      isLoading: false,
 
       initialize: async () => {
         const currentState = get()
-        if (currentState.isLoading && currentState.user) {
-          // Já está inicializando ou já inicializado
+        
+        // CORREÇÃO: Flag global para evitar múltiplas inicializações simultâneas
+        if (typeof window !== 'undefined' && (window as any).__authInitializing) {
+          // Aguardar até que a inicialização atual termine
+          let attempts = 0
+          while ((window as any).__authInitializing && attempts < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+            attempts++
+          }
+          return
+        }
+        
+        // CORREÇÃO: Verificar estado inconsistente (isAuthenticated: true mas user: null)
+        if (currentState.isAuthenticated && !currentState.user) {
+          // Estado inconsistente - resetar
+          set({ user: null, profile: null, isAuthenticated: false, isLoading: false })
+        }
+        
+        // OTIMIZAÇÃO: Se já está inicializado corretamente, verificar se a sessão ainda é válida
+        // Mas SEMPRE verificar a sessão do Supabase para garantir que está sincronizado
+        if (currentState.user && currentState.profile && !currentState.isLoading && currentState.isAuthenticated) {
+          // Verificar se a sessão ainda é válida (sem bloquear a UI)
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!session) {
+              // Sessão expirada - limpar estado
+              set({ user: null, profile: null, isAuthenticated: false, isLoading: false })
+            }
+          }).catch(() => {
+            // Se houver erro, manter estado atual
+          })
+          return
+        }
+        
+        // Se já está inicializando, não iniciar novamente
+        if (currentState.isLoading) {
           return
         }
 
+        // Marcar como inicializando
+        if (typeof window !== 'undefined') {
+          (window as any).__authInitializing = true
+        }
+        
         set({ isLoading: true })
+        
+        // CORREÇÃO: Timeout de segurança para garantir que isLoading nunca fique travado
+        const safetyTimeout = setTimeout(() => {
+          const currentState = get()
+          if (currentState.isLoading) {
+            console.warn('⚠️ [AuthStore] Timeout na inicialização - liberando isLoading')
+            set({ isLoading: false })
+          }
+        }, 5000) // Aumentar para 5 segundos para dar mais tempo
+        
         try {
-          // Get current session
+          // SEMPRE verificar a sessão do Supabase (que persiste via cookies)
+          // Isso garante que mesmo navegando entre páginas, a sessão seja recuperada
           const { data: { session }, error } = await supabase.auth.getSession()
           
+          // Limpar timeout de segurança
+          clearTimeout(safetyTimeout)
+          
           if (error || !session) {
+            // Sem sessão válida - limpar estado
             set({ user: null, profile: null, isAuthenticated: false, isLoading: false })
             return
           }
 
-          // Get profile (com proteção contra loops já implementada)
-          const profile = await getCurrentUserProfile()
+          // Sessão encontrada - carregar perfil
+          // OTIMIZAÇÃO: Carregar perfil em paralelo, mas não bloquear se demorar
+          const profilePromise = getCurrentUserProfile()
+          const profileTimeout = new Promise<null>((resolve) => 
+            setTimeout(() => resolve(null), 3000)
+          )
           
+          const profile = await Promise.race([profilePromise, profileTimeout])
+          
+          // Atualizar estado com sessão e perfil
           set({
             user: session.user,
             profile: profile,
@@ -58,29 +118,54 @@ export const useAuthStore = create<AuthState>()(
           })
 
           // Listen to auth changes (apenas uma vez - o listener persiste)
-          let listenerInitialized = false
-          if (!listenerInitialized) {
-            listenerInitialized = true
+          // Usar flag global para garantir que só inicializa uma vez
+          if (typeof window !== 'undefined' && !(window as any).__authListenerInitialized) {
+            (window as any).__authListenerInitialized = true
             supabase.auth.onAuthStateChange(async (event, session) => {
-              if (event === 'SIGNED_IN' && session) {
-                const profile = await getCurrentUserProfile()
-                set({
-                  user: session.user,
-                  profile: profile,
-                  isAuthenticated: true,
-                })
-              } else if (event === 'SIGNED_OUT') {
-                set({
-                  user: null,
-                  profile: null,
-                  isAuthenticated: false,
-                })
+              try {
+                if (event === 'SIGNED_IN' && session) {
+                  const profile = await getCurrentUserProfile()
+                  set({
+                    user: session.user,
+                    profile: profile,
+                    isAuthenticated: true,
+                  })
+                } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+                  // Se foi deslogado ou token expirado, limpar estado
+                  if (event === 'SIGNED_OUT') {
+                    set({
+                      user: null,
+                      profile: null,
+                      isAuthenticated: false,
+                    })
+                  } else if (event === 'TOKEN_REFRESHED' && session) {
+                    // Token foi renovado - atualizar usuário se necessário
+                    const profile = await getCurrentUserProfile()
+                    set({
+                      user: session.user,
+                      profile: profile,
+                      isAuthenticated: true,
+                    })
+                  }
+                }
+              } catch (error) {
+                console.error('Error in auth state change:', error)
               }
             })
           }
         } catch (error) {
           console.error('Error initializing auth:', error)
           set({ user: null, profile: null, isAuthenticated: false, isLoading: false })
+        } finally {
+          // CORREÇÃO: Sempre limpar flag de inicialização e garantir que isLoading seja false
+          if (typeof window !== 'undefined') {
+            (window as any).__authInitializing = false
+          }
+          // Garantir que isLoading seja sempre false no finally
+          const finalState = get()
+          if (finalState.isLoading) {
+            set({ isLoading: false })
+          }
         }
       },
 
@@ -107,7 +192,6 @@ export const useAuthStore = create<AuthState>()(
               
               if (ensureResponse.ok) {
                 const ensureData = await ensureResponse.json()
-                console.log('Profile ensured:', ensureData)
               }
             } catch (ensureError) {
               console.error('Error ensuring profile:', ensureError)
@@ -125,7 +209,6 @@ export const useAuthStore = create<AuthState>()(
               profile = await getCurrentUserProfile()
             }
             
-            console.log('Profile loaded after login:', profile)
             
             set({
               user: data.user,
@@ -213,6 +296,26 @@ export const useAuthStore = create<AuthState>()(
           await new Promise(resolve => setTimeout(resolve, 500))
           const profile = await getCurrentUserProfile()
           
+          // 4. Enviar email de boas-vindas (não bloqueia o signup se falhar)
+          try {
+            // Obter token da sessão atual
+            const { data: { session } } = await supabase.auth.getSession()
+            await fetch('/api/email/welcome', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session?.access_token && { 'Authorization': `Bearer ${session.access_token}` }),
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                name: displayName,
+                email: email,
+              }),
+            })
+          } catch (emailError) {
+            console.warn('⚠️ Erro ao enviar email de boas-vindas (não crítico):', emailError)
+          }
+          
           set({
             user: data.user,
             profile: profile,
@@ -239,21 +342,38 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshProfile: async () => {
-        // Prevenir múltiplas chamadas simultâneas
-        if (refreshProfileInProgress) {
-          console.log('⚠️ [AuthStore] Refresh já em progresso, ignorando...')
+        // CORREÇÃO: Verificar se está no cliente antes de acessar window
+        if (typeof window === 'undefined') {
+          return
+        }
+        
+        // OTIMIZAÇÃO: Prevenir múltiplas chamadas simultâneas com cooldown
+        const currentState = get()
+        const now = Date.now()
+        
+        // Usar Map global para armazenar flags de refresh (não no estado do Zustand)
+        const lastRefresh = (window as any).__lastProfileRefresh || 0
+        const REFRESH_COOLDOWN = 3000 // 3 segundos de cooldown
+
+        if (now - lastRefresh < REFRESH_COOLDOWN) {
           return
         }
 
-        const currentState = get()
+        // Marcar como em refresh
+        if ((window as any).__refreshingProfile) {
+          return
+        }
+
+        (window as any).__refreshingProfile = true
+        ;(window as any).__lastProfileRefresh = now
+
+        // Verificar se já tem perfil carregado
         if (currentState.profile && !currentState.isLoading) {
           // Já tem perfil e não está carregando, não precisa recarregar
-          console.log('✅ [AuthStore] Perfil já carregado, ignorando refresh')
+          (window as any).__refreshingProfile = false
           return
         }
 
-        refreshProfileInProgress = true
-        console.log('🔄 [AuthStore] Iniciando refresh do perfil...')
         
         try {
           // Limpar perfil atual primeiro
@@ -268,7 +388,6 @@ export const useAuthStore = create<AuthState>()(
             const { data: { session } } = await supabase.auth.getSession()
             
             if (!session) {
-              console.log('⚠️ [AuthStore] Sem sessão, não é possível carregar perfil')
               return
             }
             
@@ -280,7 +399,6 @@ export const useAuthStore = create<AuthState>()(
               headers['Authorization'] = `Bearer ${session.access_token}`
             }
             
-            console.log('📡 [AuthStore] Chamando API /api/profile/ensure...')
             const response = await fetch('/api/profile/ensure', {
               method: 'POST',
               credentials: 'include',
@@ -290,11 +408,9 @@ export const useAuthStore = create<AuthState>()(
             
             if (response.ok) {
               const data = await response.json()
-              console.log('✅ [AuthStore] Profile ensured:', data)
               
               // Se a API retornou o perfil, usar ele
               if (data.profile) {
-                console.log('✅ [AuthStore] Perfil recebido da API:', data.profile)
                 set({ profile: data.profile })
                 return
               }
@@ -306,41 +422,49 @@ export const useAuthStore = create<AuthState>()(
           }
           
           // Depois, carregar o perfil diretamente (forçar para ignorar cooldown)
-          console.log('🔍 [AuthStore] Carregando perfil diretamente (forçado)...')
           const profile = await getCurrentUserProfile(true) // Forçar carregamento
-          console.log('📊 [AuthStore] Profile refreshed:', profile)
           
           if (profile) {
-            console.log('✅ [AuthStore] Perfil carregado com sucesso:', {
-              id: profile.id,
-              name: profile.name,
-              role: profile.role
-            })
             set({ profile })
           } else {
             // Se ainda não carregou, tentar mais uma vez após delay
-            console.log('⚠️ [AuthStore] Perfil não carregado, tentando novamente...')
             await new Promise(resolve => setTimeout(resolve, 500))
             const retryProfile = await getCurrentUserProfile(true) // Forçar novamente
-            console.log('📊 [AuthStore] Profile retry:', retryProfile)
             if (retryProfile) {
-              console.log('✅ [AuthStore] Perfil carregado na segunda tentativa')
               set({ profile: retryProfile })
             } else {
               console.error('❌ [AuthStore] Falha ao carregar perfil após múltiplas tentativas')
             }
           }
+        } catch (error) {
+          console.error('❌ [AuthStore] Erro ao fazer refresh do perfil:', error)
         } finally {
-          refreshProfileInProgress = false
+          // Limpar flag de refresh
+          ;(window as any).__refreshingProfile = false
         }
       },
     }),
     {
       name: 'auth-storage',
       partialize: (state) => ({
-        // Only persist minimal data, session is handled by Supabase
-        isAuthenticated: state.isAuthenticated,
+        // CORREÇÃO: Não persistir isAuthenticated sozinho para evitar estado inconsistente
+        // A sessão é gerenciada pelo Supabase via cookies, não precisamos persistir estado de auth
+        // Isso evita problemas quando usuário volta e tem isAuthenticated: true mas user: null
       }),
+      // Adicionar função de rehydrate para validar estado ao restaurar
+      onRehydrateStorage: () => (state) => {
+        // Validar estado ao restaurar - se inconsistente, resetar
+        if (state && state.isAuthenticated && !state.user) {
+          return {
+            ...state,
+            isAuthenticated: false,
+            user: null,
+            profile: null,
+            isLoading: false
+          }
+        }
+        return state
+      },
     }
   )
 )

@@ -32,7 +32,7 @@ export const mockUsers: User[] = [
   {
     id: '3',
     name: 'Admin User',
-    email: 'admin@swipevault.com',
+    email: 'admin@arcanumspy.com',
     plan: 'elite',
     role: 'admin',
     status: 'active',
@@ -315,7 +315,7 @@ export const mockLogs: Log[] = [
     id: '3',
     type: 'admin_change',
     userId: '3',
-    userEmail: 'admin@swipevault.com',
+    userEmail: 'admin@arcanumspy.com',
     action: 'Updated offer: Crypto Master',
     timestamp: '2024-03-14T15:30:00Z',
   },

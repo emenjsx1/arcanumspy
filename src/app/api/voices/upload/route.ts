@@ -9,7 +9,6 @@ import { saveToStorage } from "@/lib/storage"
 import { enqueueJob } from "@/lib/queue"
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 POST /api/voices/upload - Iniciando...')
   
   try {
     const supabase = await createClient()
@@ -24,7 +23,6 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    console.log('✅ Usuário autenticado:', user.id)
     
     // Ler FormData
     const formData = await request.formData()
@@ -34,19 +32,12 @@ export async function POST(request: NextRequest) {
       ? JSON.parse(formData.get("transcripts") as string) 
       : []
     
-    console.log('📦 Dados recebidos:', {
-      name,
-      audioCount,
-      transcriptsCount: transcripts.length
-    })
-    
     // Coletar arquivos
     const audioFiles: File[] = []
     for (let i = 0; i < audioCount; i++) {
       const file = formData.get(`audio${i}`) as File | null
       if (file) {
         audioFiles.push(file)
-        console.log(`✅ Áudio ${i + 1} recebido:`, file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`)
       }
     }
     
@@ -71,7 +62,6 @@ export async function POST(request: NextRequest) {
       const url = await saveToStorage(buffer, fileName)
       audioUrls.push(url)
       
-      console.log(`✅ Áudio ${i + 1} salvo: ${url}`)
     }
     
     // Criar job para worker processar
@@ -84,7 +74,6 @@ export async function POST(request: NextRequest) {
     
     const job = await enqueueJob("build-voice", jobPayload)
     
-    console.log(`✅ Job criado: ${job.id}`)
     
     return NextResponse.json({
       success: true,

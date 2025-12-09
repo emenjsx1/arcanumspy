@@ -25,7 +25,8 @@ export async function PUT(
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }
@@ -76,7 +77,8 @@ export async function DELETE(
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
+    if (profileRole !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 403 }

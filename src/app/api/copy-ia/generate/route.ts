@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyB8_lSPlLeUrbG_U5eltTbt1ooEDFjenis"
-// Gemini 2.5 Flash - modelo mais rápido e eficiente
-// Tentar gemini-2.0-flash-exp primeiro, se não funcionar, usar gemini-1.5-flash
-const GEMINI_MODEL = "gemini-1.5-flash" // Modelo Flash otimizado para velocidade
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
+// Configuração da API OpenAI
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+const OPENAI_MODEL = "gpt-4o-mini" // Modelo rápido e econômico
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 const WEBHOOK_URL = "https://srv-4544.cloudnuvem.net/webhook-test/copy-ia"
 
 interface GenerateCopyRequest {
@@ -79,62 +78,42 @@ A estrutura JSON obrigatória é:
 Retorne SOMENTE o JSON, sem markdown code blocks, sem texto explicativo.`
 }
 
-async function generateWithGemini(prompt: string): Promise<any> {
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY não configurada')
+async function generateWithOpenAI(prompt: string): Promise<any> {
+  if (!OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY não configurada')
   }
 
   const fullPrompt = `Você é um copywriter especialista. Sempre retorne apenas JSON válido, sem markdown, sem explicações.
 
 ${prompt}`
 
-  // Usar a API do Gemini 1.5 Pro com configurações otimizadas
-  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(OPENAI_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      contents: [
+      model: OPENAI_MODEL,
+      messages: [
         {
-          parts: [
-            {
-              text: fullPrompt,
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.8,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 4000, // Aumentado para copies mais longas
-        responseMimeType: "application/json", // Forçar resposta JSON
-      },
-      safetySettings: [
-        {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          role: 'system',
+          content: 'Você é um copywriter especialista. Sempre retorne apenas JSON válido, sem markdown, sem explicações.'
         },
         {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          role: 'user',
+          content: fullPrompt
         }
       ],
+      temperature: 0.8,
+      max_tokens: 4000,
+      response_format: { type: "json_object" }
     }),
   })
 
   if (!response.ok) {
     const errorText = await response.text()
-    let errorMessage = `Gemini API error: ${response.status}`
+    let errorMessage = `OpenAI API error: ${response.status}`
     try {
       const errorJson = JSON.parse(errorText)
       errorMessage = errorJson.error?.message || errorMessage
@@ -146,15 +125,10 @@ ${prompt}`
 
   const data = await response.json()
   
-  // Verificar se há bloqueios de segurança
-  if (data.candidates?.[0]?.finishReason === 'SAFETY') {
-    throw new Error('Conteúdo bloqueado por políticas de segurança')
-  }
-
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text
+  const content = data.choices?.[0]?.message?.content
 
   if (!content) {
-    throw new Error('Resposta vazia da API')
+    throw new Error('Resposta vazia da API OpenAI')
   }
 
   // Remover markdown code blocks se existirem
@@ -180,12 +154,6 @@ async function sendToWebhook(data: any, userId: string): Promise<void> {
       ...data,
     }
 
-    console.log('📤 ==========================================')
-    console.log('📤 ENVIANDO WEBHOOK')
-    console.log('📤 URL:', WEBHOOK_URL)
-    console.log('📤 Payload:', JSON.stringify(webhookPayload, null, 2))
-    console.log('📤 ==========================================')
-
     // Criar AbortController para timeout
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 segundos
@@ -196,7 +164,7 @@ async function sendToWebhook(data: any, userId: string): Promise<void> {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'SwipeVault-CopyIA/1.0',
+          'User-Agent': 'ArcanumSpy-CopyIA/1.0',
         },
         body: JSON.stringify(webhookPayload),
         signal: controller.signal,
@@ -211,10 +179,7 @@ async function sendToWebhook(data: any, userId: string): Promise<void> {
         console.error(`   Resposta:`, errorText.substring(0, 200))
       } else {
         const responseText = await response.text().catch(() => '')
-        console.log(`✅ Webhook enviado com sucesso em ${duration}ms`)
-        console.log(`   Status: ${response.status}`)
         if (responseText) {
-          console.log(`   Resposta:`, responseText.substring(0, 200))
         }
       }
     } catch (fetchError: any) {
@@ -271,7 +236,6 @@ ${input.cta}`,
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📥 POST /api/copy-ia/generate - Recebendo requisição...')
     
     const supabase = await createClient()
     
@@ -286,12 +250,24 @@ export async function POST(request: NextRequest) {
     
     // 2. Se não funcionou, tentar via header Authorization
     if (!user) {
-      const authHeader = request.headers.get('authorization')
+      const authHeader = request.headers.get('Authorization')
       if (authHeader?.startsWith('Bearer ')) {
-        const token = authHeader.replace('Bearer ', '')
-        const tokenResult = await supabase.auth.getUser(token)
-        user = tokenResult.data?.user || null
-        authError = tokenResult.error
+        const token = authHeader.substring(7)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
+        const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        })
+        const { data: { user: userFromToken } } = await tempClient.auth.getUser(token)
+        if (userFromToken) {
+          user = userFromToken
+          authError = null
+        }
       }
     }
     
@@ -306,8 +282,6 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
-
-    console.log('✅ Usuário autenticado:', user.id)
 
     const body: GenerateCopyRequest = await request.json()
     
@@ -335,17 +309,12 @@ export async function POST(request: NextRequest) {
         },
         true // Permite saldo negativo
       )
-      console.log('✅ 5 créditos debitados pela geração de copy')
     } catch (creditError) {
       console.error('❌ Erro ao debitar créditos pela geração de copy:', creditError)
       // Não bloquear a geração se houver erro ao debitar créditos
     }
 
     // 1. PRIMEIRO: ENVIAR WEBHOOK IMEDIATAMENTE (assim que clicar em Gerar Copy)
-    console.log('🚀 ==========================================')
-    console.log('🚀 ENVIANDO WEBHOOK IMEDIATAMENTE')
-    console.log('🚀 Usuário:', user.id)
-    console.log('🚀 ==========================================')
     
     // Enviar webhook de forma não bloqueante (não esperar)
     sendToWebhook({
@@ -382,34 +351,30 @@ export async function POST(request: NextRequest) {
         console.error('Erro ao salvar dados iniciais:', saveError)
       } else {
         savedId = saved.id
-        console.log('✅ Dados salvos no banco:', savedId)
       }
     } catch (saveError: any) {
       console.error('Erro ao salvar dados iniciais:', saveError)
       // Continuar mesmo se falhar ao salvar
     }
 
-    // 3. GERAR COPY com Gemini 2.5 Flash
+    // 3. GERAR COPY com OpenAI
     let resultado: any
     let generationError: any = null
     
     try {
       const prompt = buildPrompt(body)
       
-      if (GEMINI_API_KEY) {
-        console.log('🤖 Gerando copy com Gemini 2.5 Flash...')
-        resultado = await generateWithGemini(prompt)
-        console.log('✅ Copy gerada com sucesso pelo Gemini')
+      if (OPENAI_API_KEY) {
+        resultado = await generateWithOpenAI(prompt)
       } else {
         // Fallback para mock quando API não está configurada
-        console.warn('⚠️ GEMINI_API_KEY não configurada, usando resposta mock')
+        console.warn('⚠️ OPENAI_API_KEY não configurada, usando resposta mock')
         resultado = generateMockCopy(body)
       }
     } catch (error: any) {
-      console.error('❌ Erro ao gerar copy com Gemini:', error)
+      console.error('❌ Erro ao gerar copy com OpenAI:', error)
       generationError = error
       // SEMPRE usar fallback para garantir que retorne uma copy
-      console.log('🔄 Usando fallback para garantir resposta...')
       resultado = generateMockCopy(body)
     }
 
@@ -433,7 +398,6 @@ export async function POST(request: NextRequest) {
           .update({ resultado: resultado })
           .eq('id', savedId)
         
-        console.log('✅ Resultado atualizado no banco')
       } catch (updateError) {
         console.error('Erro ao atualizar resultado:', updateError)
       }

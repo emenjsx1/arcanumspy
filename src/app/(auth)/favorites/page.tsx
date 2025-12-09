@@ -115,7 +115,10 @@ export default function FavoritesPage() {
   
   if (nicheFilter) {
     filteredFavorites = filteredFavorites.filter(
-      (fav) => fav.offer?.niche?.toLowerCase() === nicheFilter.toLowerCase()
+      (fav) => {
+        const nicheValue = typeof fav.offer?.niche === 'string' ? fav.offer.niche : (fav.offer?.niche as any)?.name || ''
+        return nicheValue.toLowerCase() === nicheFilter.toLowerCase()
+      }
     )
   }
   
@@ -135,12 +138,15 @@ export default function FavoritesPage() {
     )
   }
 
-  const uniqueNiches = Array.from(new Set(favorites.map(fav => fav.offer?.niche).filter(Boolean)))
+  const uniqueNiches = Array.from(new Set(favorites.map(fav => {
+    const niche = fav.offer?.niche
+    return typeof niche === 'string' ? niche : (niche as any)?.name || niche
+  }).filter(Boolean))) as string[]
 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <h1 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent break-words">
           Favoritos
         </h1>
         <p className="text-muted-foreground text-lg">
@@ -159,7 +165,7 @@ export default function FavoritesPage() {
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               {uniqueNiches.map((niche) => (
-                <SelectItem key={niche} value={niche!}>
+                <SelectItem key={niche} value={niche}>
                   {niche}
                 </SelectItem>
               ))}
@@ -232,7 +238,9 @@ export default function FavoritesPage() {
                           {getCountryIcon(offer.country)} {getCountryName(offer.country)}
                         </Badge>
                         {offer.niche && (
-                          <Badge variant="outline">{offer.niche}</Badge>
+                          <Badge variant="outline">
+                            {typeof offer.niche === 'string' ? offer.niche : (offer.niche as any)?.name || 'Nicho'}
+                          </Badge>
                         )}
                       </div>
                       <CardTitle className="text-xl mb-2">{offer.title}</CardTitle>
@@ -258,9 +266,9 @@ export default function FavoritesPage() {
                         Ver detalhes
                       </Button>
                     </Link>
-                    {offer.original_url && (
+                    {(offer as any).original_url && (
                       <Button variant="outline" asChild>
-                        <a href={offer.original_url} target="_blank" rel="noopener noreferrer">
+                        <a href={(offer as any).original_url} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="mr-2 h-4 w-4" />
                           Ver original
                         </a>

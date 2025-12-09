@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense } from "react"
+import { Suspense, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { useAuthStore } from "@/store/auth-store"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
-import { Check, ArrowRight, Eye, Mic, Copy } from "lucide-react"
+import { Check, ArrowRight, Eye, Mic, Copy, Search, Globe, CheckSquare, MessageSquare } from "lucide-react"
 import { motion } from "framer-motion"
 
 const signupSchema = z.object({
@@ -31,11 +31,18 @@ const signupSchema = z.object({
 
 type SignupFormData = z.infer<typeof signupSchema>
 
-
 function SignupFormContent() {
   const router = useRouter()
   const { signup, isLoading } = useAuthStore()
   const { toast } = useToast()
+
+  // Garantir que isLoading seja false ao carregar a página
+  useEffect(() => {
+    if (isLoading && !useAuthStore.getState().user) {
+      // Se isLoading está true mas não há usuário, resetar
+      useAuthStore.setState({ isLoading: false })
+    }
+  }, [])
 
   const {
     register,
@@ -55,7 +62,7 @@ function SignupFormContent() {
 
       toast({
         title: "Conta criada com sucesso!",
-        description: "Bem-vindo ao SwipeVault Pro! Você receberá créditos grátis para começar.",
+        description: "Bem-vindo ao ArcanumSpy! Você receberá créditos grátis para começar.",
       })
 
       router.push("/dashboard")
@@ -69,7 +76,7 @@ function SignupFormContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f9f9f9] py-12">
+    <div className="min-h-screen bg-[#f9f9f9] dark:bg-black py-12">
       <div className="container px-4 md:px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -79,35 +86,35 @@ function SignupFormContent() {
         >
           {/* Header */}
           <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-[#0b0c10] mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-[#0b0c10] dark:text-white mb-4">
               Criar Conta
             </h1>
-            <p className="text-lg text-[#6b6b6b]">
+            <p className="text-lg text-[#6b6b6b] dark:text-gray-400">
               Preencha os dados abaixo para começar
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Form Section */}
-            <Card className="bg-white border-0 shadow-xl rounded-2xl p-8">
+            <Card className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#2a2a2a] shadow-xl rounded-2xl p-8">
               <CardHeader className="pb-6">
-                <CardTitle className="text-2xl font-bold text-[#0b0c10]">
+                <CardTitle className="text-2xl font-bold text-[#0b0c10] dark:text-white">
                   Dados da Conta
                 </CardTitle>
-                <CardDescription className="text-[#6b6b6b]">
+                <CardDescription className="text-[#6b6b6b] dark:text-gray-400">
                   Informações básicas para criar sua conta
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit(handleFinalSubmit)} className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="name" className="text-[#0b0c10] font-semibold">
+                    <Label htmlFor="name" className="text-[#0b0c10] dark:text-white font-semibold">
                       Nome
                     </Label>
                     <Input
                       id="name"
                       placeholder="João Silva"
-                      className="rounded-xl border-gray-200 focus:border-[#ff5a1f] focus:ring-[#ff5a1f]"
+                      className="bg-white dark:bg-[#0a0a0a] border-gray-200 dark:border-[#2a2a2a] text-[#0b0c10] dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 rounded-xl focus:border-[#ff5a1f] focus:ring-[#ff5a1f]"
                       {...register("name")}
                     />
                     {errors.name && (
@@ -116,14 +123,14 @@ function SignupFormContent() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-[#0b0c10] font-semibold">
+                    <Label htmlFor="email" className="text-[#0b0c10] dark:text-white font-semibold">
                       Email
                     </Label>
                     <Input
                       id="email"
                       type="email"
                       placeholder="seu@email.com"
-                      className="rounded-xl border-gray-200 focus:border-[#ff5a1f] focus:ring-[#ff5a1f]"
+                      className="bg-white dark:bg-[#0a0a0a] border-gray-200 dark:border-[#2a2a2a] text-[#0b0c10] dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 rounded-xl focus:border-[#ff5a1f] focus:ring-[#ff5a1f]"
                       {...register("email")}
                     />
                     {errors.email && (
@@ -132,14 +139,14 @@ function SignupFormContent() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-[#0b0c10] font-semibold">
+                    <Label htmlFor="password" className="text-[#0b0c10] dark:text-white font-semibold">
                       Senha
                     </Label>
                     <Input
                       id="password"
                       type="password"
                       placeholder="••••••••"
-                      className="rounded-xl border-gray-200 focus:border-[#ff5a1f] focus:ring-[#ff5a1f]"
+                      className="bg-white dark:bg-[#0a0a0a] border-gray-200 dark:border-[#2a2a2a] text-[#0b0c10] dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 rounded-xl focus:border-[#ff5a1f] focus:ring-[#ff5a1f]"
                       {...register("password")}
                     />
                     {errors.password && (
@@ -148,14 +155,14 @@ function SignupFormContent() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword" className="text-[#0b0c10] font-semibold">
+                    <Label htmlFor="confirmPassword" className="text-[#0b0c10] dark:text-white font-semibold">
                       Confirmar Senha
                     </Label>
                     <Input
                       id="confirmPassword"
                       type="password"
                       placeholder="••••••••"
-                      className="rounded-xl border-gray-200 focus:border-[#ff5a1f] focus:ring-[#ff5a1f]"
+                      className="bg-white dark:bg-[#0a0a0a] border-gray-200 dark:border-[#2a2a2a] text-[#0b0c10] dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 rounded-xl focus:border-[#ff5a1f] focus:ring-[#ff5a1f]"
                       {...register("confirmPassword")}
                     />
                     {errors.confirmPassword && (
@@ -168,9 +175,9 @@ function SignupFormContent() {
                       type="checkbox"
                       id="terms"
                       {...register("acceptTerms")}
-                      className="mt-1 w-4 h-4 rounded border-gray-300 text-[#ff5a1f] focus:ring-[#ff5a1f]"
+                      className="mt-1 w-4 h-4 rounded border-gray-300 dark:border-[#2a2a2a] bg-white dark:bg-[#0a0a0a] text-[#ff5a1f] focus:ring-[#ff5a1f]"
                     />
-                    <Label htmlFor="terms" className="text-sm text-[#6b6b6b] leading-relaxed">
+                    <Label htmlFor="terms" className="text-sm text-[#6b6b6b] dark:text-gray-400 leading-relaxed">
                       Eu aceito os{" "}
                       <Link href="/terms" className="text-[#ff5a1f] hover:underline font-semibold">
                         Termos de Uso
@@ -200,7 +207,7 @@ function SignupFormContent() {
                   </motion.div>
                 </form>
 
-                <p className="mt-6 text-center text-sm text-[#6b6b6b]">
+                <p className="mt-6 text-center text-sm text-[#6b6b6b] dark:text-gray-400">
                   Já tem uma conta?{" "}
                   <Link href="/login" className="text-[#ff5a1f] hover:underline font-semibold">
                     Entrar
@@ -209,55 +216,73 @@ function SignupFormContent() {
               </CardContent>
             </Card>
 
-            {/* Sistema de Créditos */}
-            <Card className="bg-white dark:bg-black border-0 shadow-xl rounded-2xl p-8">
+            {/* Plataforma Completa */}
+            <Card className="bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#2a2a2a] shadow-xl rounded-2xl p-8">
               <CardHeader className="pb-6">
                 <CardTitle className="text-2xl font-bold text-[#0b0c10] dark:text-white">
-                  Sistema de Créditos
+                  Plataforma Completa
                 </CardTitle>
                 <CardDescription className="text-[#6b6b6b] dark:text-gray-400">
-                  Pague apenas pelo que usar
+                  Todas as ferramentas que você precisa
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="bg-[#ff5a1f]/10 dark:bg-[#ff5a1f]/20 border border-[#ff5a1f]/20 dark:border-[#ff5a1f]/30 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-[#0b0c10] dark:text-white mb-3">
-                    💳 Como Funciona?
+                    🚀 O que você tem acesso?
                   </h3>
                   <p className="text-sm text-[#6b6b6b] dark:text-gray-400 leading-relaxed mb-4">
-                    O SwipeVault Pro funciona com um sistema de créditos. Você compra créditos e usa conforme sua necessidade. Não há mensalidades fixas!
+                    O ArcanumSpy oferece uma plataforma completa com todas as ferramentas de marketing, IA, espionagem e produtividade em um único lugar.
                   </p>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <div className="flex items-start gap-3">
-                      <Eye className="w-5 h-5 text-[#ff5a1f] flex-shrink-0 mt-0.5" />
+                      <Search className="w-5 h-5 text-[#ff5a1f] flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-semibold text-[#0b0c10] dark:text-white">Visualizar Oferta</p>
-                        <p className="text-xs text-[#6b6b6b] dark:text-gray-400">1 crédito por oferta</p>
+                        <p className="text-sm font-semibold text-[#0b0c10] dark:text-white">Biblioteca de Ofertas</p>
+                        <p className="text-xs text-[#6b6b6b] dark:text-gray-400">Milhares de ofertas escaladas</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <Mic className="w-5 h-5 text-[#ff5a1f] flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-semibold text-[#0b0c10] dark:text-white">Gerar Voz IA</p>
-                        <p className="text-xs text-[#6b6b6b] dark:text-gray-400">5 créditos por minuto</p>
+                        <p className="text-sm font-semibold text-[#0b0c10] dark:text-white">IA de Voz</p>
+                        <p className="text-xs text-[#6b6b6b] dark:text-gray-400">Clone vozes e gere narrações</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <Copy className="w-5 h-5 text-[#ff5a1f] flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-semibold text-[#0b0c10] dark:text-white">Gerar Copy</p>
-                        <p className="text-xs text-[#6b6b6b] dark:text-gray-400">5 créditos por geração</p>
+                        <p className="text-sm font-semibold text-[#0b0c10] dark:text-white">Gerador de Copy IA</p>
+                        <p className="text-xs text-[#6b6b6b] dark:text-gray-400">Copy profissional com IA</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Globe className="w-5 h-5 text-[#ff5a1f] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-[#0b0c10] dark:text-white">Espionagem</p>
+                        <p className="text-xs text-[#6b6b6b] dark:text-gray-400">Domínios, ofertas e criativos</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <CheckSquare className="w-5 h-5 text-[#ff5a1f] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-[#0b0c10] dark:text-white">Produtividade</p>
+                        <p className="text-xs text-[#6b6b6b] dark:text-gray-400">Tarefas, metas, anotações e mais</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <MessageSquare className="w-5 h-5 text-[#ff5a1f] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-[#0b0c10] dark:text-white">Comunidade</p>
+                        <p className="text-xs text-[#6b6b6b] dark:text-gray-400">Conecte-se com outros afiliados</p>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="text-center">
-                  <Link href="/pricing">
-                    <Button variant="outline" className="w-full border-2 border-[#ff5a1f] text-[#ff5a1f] hover:bg-[#ff5a1f] hover:text-white rounded-full">
-                      Ver Pacotes de Créditos
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </Link>
+                  <p className="text-sm text-[#6b6b6b] dark:text-gray-400 mb-4">
+                    E muito mais! Acesse todas as funcionalidades após criar sua conta.
+                  </p>
                 </div>
               </CardContent>
             </Card>

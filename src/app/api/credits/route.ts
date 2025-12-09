@@ -5,6 +5,7 @@ import {
   getCreditPackages,
   loadCredits,
   getUserCreditTransactions,
+  getUserCreditStats,
   type CreditBalance
 } from "@/lib/db/credits"
 
@@ -50,7 +51,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Usar adminClient para evitar problemas de RLS
-    console.log('🔍 [API /api/credits GET] Buscando saldo usando adminClient...', { userId: user.id })
     const { createAdminClient } = await import('@/lib/supabase/admin')
     const adminClient = createAdminClient()
     
@@ -64,10 +64,8 @@ export async function GET(request: NextRequest) {
     let balance: CreditBalance | null = null
     
     if (balanceError) {
-      console.log('⚠️ [API /api/credits GET] Erro ao buscar saldo:', balanceError.code, balanceError.message)
       // Se não existe, criar registro usando adminClient
       if (balanceError.code === 'PGRST116') {
-        console.log('📝 [API /api/credits GET] Registro não existe, criando...')
         const { data: newRecord, error: insertError } = await adminClient
           .from('user_credits')
           .insert({
@@ -82,22 +80,38 @@ export async function GET(request: NextRequest) {
         if (insertError) {
           console.error('❌ [API /api/credits GET] Erro ao criar registro:', insertError)
         } else if (newRecord) {
-          console.log('✅ [API /api/credits GET] Registro criado com sucesso')
           balance = newRecord as CreditBalance
         }
       } else {
         console.error('❌ [API /api/credits GET] Erro ao buscar saldo:', balanceError)
       }
     } else if (balanceData) {
-      console.log('✅ [API /api/credits GET] Saldo encontrado:', {
-        balance: balanceData.balance,
-        total_loaded: balanceData.total_loaded,
-        total_consumed: balanceData.total_consumed
-      })
       balance = balanceData as CreditBalance
     }
 
     const packages = await getCreditPackages()
+
+    // Se não há balance ou os valores estão zerados, calcular a partir de atividades
+    if (!balance || (balance.total_loaded === 0 && balance.total_consumed === 0)) {
+      const stats = await getUserCreditStats(user.id)
+      
+      // Se encontrou dados nas atividades, usar esses valores
+      if (stats.total_loaded > 0 || stats.total_consumed > 0) {
+        const calculatedBalance: CreditBalance = {
+          balance: stats.balance,
+          total_loaded: stats.total_loaded,
+          total_consumed: stats.total_consumed,
+          is_blocked: balance?.is_blocked || false,
+          low_balance_threshold: balance?.low_balance_threshold || 10
+        }
+        
+        return NextResponse.json({
+          success: true,
+          balance: calculatedBalance,
+          packages
+        })
+      }
+    }
 
     if (!balance) {
       return NextResponse.json({
@@ -185,14 +199,6 @@ export async function POST(request: NextRequest) {
     // 2. Aguardar confirmação
     // 3. Só então carregar os créditos
 
-    console.log('🌐 [API /api/credits POST] Iniciando carregamento de créditos:', {
-      userId: user.id,
-      packageId: package_id,
-      paymentId: payment_id,
-      customCredits: custom_credits,
-      customPrice: custom_price_cents
-    })
-
     // Se for compra customizada, usar package_id do primeiro pacote como base para cálculo
     // mas passar os valores customizados
     let finalPackageId = package_id
@@ -222,15 +228,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('✅ [API /api/credits POST] Créditos carregados, verificando saldo...')
-    console.log('   Transaction ID:', result.transactionId)
-
     // Aguardar um pouco para garantir que a transação foi commitada
-    console.log('⏳ [API /api/credits POST] Aguardando 500ms...')
     await new Promise(resolve => setTimeout(resolve, 500))
 
     // Obter saldo atualizado usando adminClient para garantir que vemos os dados
-    console.log('🔍 [API /api/credits POST] Obtendo saldo atualizado...')
     const { createAdminClient } = await import('@/lib/supabase/admin')
     const adminClient = createAdminClient()
     
@@ -242,10 +243,8 @@ export async function POST(request: NextRequest) {
 
     if (balanceError) {
       console.error('⚠️ [API /api/credits POST] Erro ao obter saldo com adminClient:', balanceError)
-      console.log('   Tentando com getUserCreditBalance como fallback...')
       // Tentar com getUserCreditBalance como fallback
       const balance = await getUserCreditBalance(user.id)
-      console.log('   Saldo do fallback:', balance)
       return NextResponse.json({
         success: true,
         transaction_id: result.transactionId,
@@ -267,9 +266,6 @@ export async function POST(request: NextRequest) {
       low_balance_threshold: balanceData?.low_balance_threshold || 10
     }
 
-    console.log('📊 [API /api/credits POST] Saldo final obtido:', balance)
-    console.log('✅ [API /api/credits POST] Retornando resposta de sucesso')
-
     return NextResponse.json({
       success: true,
       transaction_id: result.transactionId,
@@ -283,7 +279,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-
-
 

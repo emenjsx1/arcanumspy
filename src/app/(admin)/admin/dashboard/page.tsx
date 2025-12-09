@@ -16,11 +16,18 @@ export default function AdminDashboardPage() {
   const [recentUsers, setRecentUsers] = useState<UserWithSubscription[]>([])
   const [topOffers, setTopOffers] = useState<OfferWithViews[]>([])
   const [loading, setLoading] = useState(true)
+  // CORREÇÃO: Flags para evitar múltiplas execuções simultâneas
+  const [dataLoaded, setDataLoaded] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(false)
 
   useEffect(() => {
+    // CORREÇÃO: Se já carregou os dados ou está carregando, não executar novamente
+    if (dataLoaded || isLoadingData) return
+
     const loadData = async () => {
+      // Marcar como carregando para evitar execuções simultâneas
+      setIsLoadingData(true)
       const startTime = Date.now()
-      console.log('⏱️ [Admin Dashboard] Iniciando carregamento de dados...')
       
       setLoading(true)
       try {
@@ -31,36 +38,36 @@ export default function AdminDashboardPage() {
           getTopOffers(10),
         ])
         const loadTime = Date.now() - loadStartTime
-        console.log(`⏱️ [Admin Dashboard] Dados carregados em ${loadTime}ms`)
         
         setStats(statsData)
         setRecentUsers(usersData)
         setTopOffers(offersData)
+        setDataLoaded(true)
         
         const totalTime = Date.now() - startTime
-        console.log(`✅ [Admin Dashboard] Carregamento completo em ${totalTime}ms`)
       } catch (error) {
         console.error('❌ [Admin Dashboard] Erro ao carregar dados:', error)
       } finally {
         setLoading(false)
+        setIsLoadingData(false)
       }
     }
     
     loadData()
-  }, [])
+  }, [dataLoaded, isLoadingData])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Dashboard Administrativo</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl md:text-3xl font-bold">Dashboard Administrativo</h1>
+        <p className="text-muted-foreground text-sm md:text-base">
           Visão geral do sistema
         </p>
       </div>
 
       {/* Metrics */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
               <CardHeader>
@@ -74,7 +81,7 @@ export default function AdminDashboardPage() {
           ))}
         </div>
       ) : stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
@@ -129,7 +136,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Top Offers */}
         <Card>
           <CardHeader>

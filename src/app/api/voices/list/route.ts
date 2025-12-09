@@ -39,7 +39,6 @@ export async function GET(request: Request) {
 
     // Buscar vozes do usuário
     const startTime = Date.now()
-    console.log('⏱️ [API /voices/list] Iniciando busca de vozes...', { userId: user.id })
     
     try {
       const adminClient = createAdminClient()
@@ -52,9 +51,6 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false })
       
       const queryTime = Date.now() - queryStartTime
-      console.log(`⏱️ [API /voices/list] Query do banco executada em ${queryTime}ms`, {
-        count: voiceClones?.length || 0
-      })
 
       if (dbError) {
         console.error('❌ [API /voices/list] Erro ao buscar vozes:', dbError)
@@ -98,11 +94,6 @@ export async function GET(request: Request) {
       
       const mappingTime = Date.now() - mappingStartTime
       const totalTime = Date.now() - startTime
-      console.log(`✅ [API /voices/list] Processamento concluído em ${totalTime}ms`, {
-        queryTime: `${queryTime}ms`,
-        mappingTime: `${mappingTime}ms`,
-        voicesCount: validatedVoices.length
-      })
 
       return NextResponse.json({
         success: true,

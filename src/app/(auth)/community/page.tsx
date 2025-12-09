@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Search, Users, MessageSquare, TrendingUp, Clock, ArrowRight, Heart } from "lucide-react"
+import { Search, Users, MessageSquare, TrendingUp, Clock, ArrowRight, Heart, Check } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase/client"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getActiveCommunitiesForUser } from "@/lib/db/communities"
+import { useToast } from "@/components/ui/use-toast"
 
 interface Community {
   id: string
@@ -27,11 +28,13 @@ export default function CommunityPage() {
   const [communities, setCommunities] = useState<Community[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [joiningCommunity, setJoiningCommunity] = useState<string | null>(null)
+  const [joinedCommunities, setJoinedCommunities] = useState<Set<string>>(new Set())
+  const { toast } = useToast()
 
   useEffect(() => {
     const loadCommunities = async () => {
       const startTime = Date.now()
-      console.log('⏱️ [Community Page] Iniciando carregamento de comunidades...')
       
       try {
         setLoading(true)
@@ -40,7 +43,6 @@ export default function CommunityPage() {
         const communitiesData = await getActiveCommunitiesForUser()
         
         const totalTime = Date.now() - startTime
-        console.log(`✅ [Community Page] ${communitiesData.length} comunidades carregadas em ${totalTime}ms`)
 
         // Mapear para o formato esperado pela página
         const mappedCommunities = communitiesData.map(community => ({
@@ -52,10 +54,24 @@ export default function CommunityPage() {
           is_active: community.is_active,
           created_at: community.created_at,
           members_count: community.member_count || 0,
-          posts_count: 0, // Por enquanto, não há tabela de posts
+          posts_count: community.posts_count || 0,
         }))
 
         setCommunities(mappedCommunities)
+
+        // Verificar quais comunidades o usuário já é membro
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          const { data: memberships } = await supabase
+            .from('community_members')
+            .select('community_id')
+            .eq('user_id', session.user.id)
+
+          if (memberships) {
+            const joinedIds = new Set<string>(memberships.map((m: any) => m.community_id as string))
+            setJoinedCommunities(joinedIds)
+          }
+        }
       } catch (error: any) {
         console.error('❌ [Community Page] Erro ao carregar comunidades:', error)
         // Se a tabela não existir, apenas mostrar array vazio (não quebrar a página)
@@ -76,16 +92,78 @@ export default function CommunityPage() {
     community.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const handleJoinCommunity = async (communityId: string) => {
+    try {
+      setJoiningCommunity(communityId)
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar autenticado para entrar na comunidade",
+          variant: "destructive"
+        })
+        return
+      }
+
+      const response = await fetch(`/api/communities/${communityId}/join`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Sucesso!",
+          description: "Você entrou na comunidade com sucesso",
+        })
+        setJoinedCommunities(prev => new Set([...prev, communityId]))
+        // Recarregar comunidades para atualizar contadores
+        const communitiesData = await getActiveCommunitiesForUser()
+        const mappedCommunities = communitiesData.map(community => ({
+          id: community.id,
+          name: community.name,
+          description: community.description,
+          is_paid: community.is_paid,
+          join_link: community.join_link,
+          is_active: community.is_active,
+          created_at: community.created_at,
+          members_count: community.member_count || 0,
+          posts_count: community.posts_count || 0,
+        }))
+        setCommunities(mappedCommunities)
+      } else {
+        toast({
+          title: "Erro",
+          description: data.error || "Erro ao entrar na comunidade",
+          variant: "destructive"
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao entrar na comunidade",
+        variant: "destructive"
+      })
+    } finally {
+      setJoiningCommunity(null)
+    }
+  }
+
   const totalMembers = communities.reduce((sum, c) => sum + (c.members_count || 0), 0)
   const totalPosts = communities.reduce((sum, c) => sum + (c.posts_count || 0), 0)
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="space-y-2">
-        <h1 className="text-4xl md:text-5xl font-bold flex items-center gap-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-          <Users className="h-8 w-8 md:h-10 md:w-10 text-primary" />
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold flex items-center gap-2 md:gap-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent break-words">
+          <Users className="h-6 w-6 md:h-7 md:w-7 text-primary" />
           Comunidade
         </h1>
-        <p className="text-muted-foreground text-lg">
+        <p className="text-muted-foreground text-sm">
           Conecte-se com outros afiliados e compartilhe estratégias
         </p>
       </div>
@@ -102,7 +180,7 @@ export default function CommunityPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Comunidades</CardTitle>
@@ -161,7 +239,7 @@ export default function CommunityPage() {
           <h2 className="text-2xl font-bold">Comunidades Disponíveis</h2>
         </div>
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {[1, 2, 3].map((i) => (
               <Card key={i}>
                 <CardHeader>
@@ -175,50 +253,85 @@ export default function CommunityPage() {
             ))}
           </div>
         ) : filteredCommunities.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
             {filteredCommunities.map((community) => (
-              <Card key={community.id} className="hover:shadow-xl transition-all border-2 hover:border-primary/50 cursor-pointer hover:scale-[1.02] bg-gradient-to-br from-background via-background to-muted/20">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="text-4xl">👥</div>
-                      <div>
-                        <CardTitle className="text-lg">{community.name}</CardTitle>
-                        {community.is_paid && (
-                          <Badge variant="secondary" className="mt-1">
-                            Premium
-                          </Badge>
-                        )}
+              <div
+                key={community.id}
+                className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-background via-background to-muted/30 border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-1"
+              >
+                {/* Círculo decorativo de fundo */}
+                <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-primary/5 blur-3xl group-hover:bg-primary/10 transition-colors duration-300" />
+                <div className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-primary/5 blur-3xl group-hover:bg-primary/10 transition-colors duration-300" />
+                
+                <div className="relative p-6">
+                  {/* Avatar circular */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="relative">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-2xl border-2 border-primary/20 group-hover:border-primary/40 transition-colors">
+                        <Users className="h-8 w-8 text-primary" />
                       </div>
+                      {community.is_paid && (
+                        <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-primary-foreground">★</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg font-semibold truncate">{community.name}</CardTitle>
+                      <CardDescription className="text-xs mt-1 line-clamp-2">
+                        {community.description || 'Sem descrição'}
+                      </CardDescription>
                     </div>
                   </div>
-                  <CardDescription className="mt-2">
-                    {community.description || 'Sem descrição'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-4 w-4" />
-                      {community.members_count?.toLocaleString() || 0} membros
+
+                  {/* Estatísticas em círculos */}
+                  <div className="flex items-center justify-center gap-6 mb-6">
+                    <div className="flex flex-col items-center">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-1 group-hover:bg-primary/20 transition-colors">
+                        <Users className="h-5 w-5 text-primary" />
+                      </div>
+                      <span className="text-sm font-semibold">{community.members_count?.toLocaleString() || 0}</span>
+                      <span className="text-xs text-muted-foreground">membros</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="h-4 w-4" />
-                      {community.posts_count || 0} posts
+                    <div className="w-px h-12 bg-border" />
+                    <div className="flex flex-col items-center">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-1 group-hover:bg-primary/20 transition-colors">
+                        <MessageSquare className="h-5 w-5 text-primary" />
+                      </div>
+                      <span className="text-sm font-semibold">{community.posts_count || 0}</span>
+                      <span className="text-xs text-muted-foreground">posts</span>
                     </div>
                   </div>
-                  <Button 
-                    className="w-full" 
-                    variant="outline"
-                    asChild
-                  >
-                    <a href={community.join_link} target="_blank" rel="noopener noreferrer">
-                      Entrar na Comunidade
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </a>
-                  </Button>
-                </CardContent>
-              </Card>
+
+                  {/* Botões circulares */}
+                  <div className="flex gap-2">
+                    <Button 
+                      className="flex-1 rounded-full" 
+                      variant="default"
+                      asChild
+                    >
+                      <Link href={`/community/${community.id}`}>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Ver Posts
+                      </Link>
+                    </Button>
+                    <Button 
+                      className="rounded-full px-4" 
+                      variant={joinedCommunities.has(community.id) ? "default" : "outline"}
+                      onClick={() => handleJoinCommunity(community.id)}
+                      disabled={joiningCommunity === community.id || joinedCommunities.has(community.id)}
+                    >
+                      {joiningCommunity === community.id ? (
+                        <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : joinedCommunities.has(community.id) ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <ArrowRight className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         ) : (

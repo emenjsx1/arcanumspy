@@ -73,7 +73,6 @@ export default function AdminCommunitiesPage() {
   }
 
   const handleSaveCommunity = async (data: any) => {
-    console.log('handleSaveCommunity chamado com:', data)
     
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -98,8 +97,6 @@ export default function AdminCommunitiesPage() {
         is_active: data.is_active !== undefined ? data.is_active : true,
       }
 
-      console.log('Enviando requisição:', { url, method, payload })
-
       const response = await fetch(url, {
         method,
         headers: {
@@ -115,8 +112,6 @@ export default function AdminCommunitiesPage() {
         console.error('Erro ao salvar comunidade:', responseData)
         throw new Error(responseData.error || `Erro ${response.status}: ${response.statusText}`)
       }
-
-      console.log('Comunidade salva com sucesso:', responseData)
 
       toast({
         title: editingCommunity ? "Comunidade atualizada" : "Comunidade criada",
@@ -362,7 +357,6 @@ function CommunityForm({
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            console.log('Botão salvar comunidade clicado', formData)
             
             // Validar campos obrigatórios
             if (!formData.name || !formData.name.trim()) {
@@ -383,7 +377,6 @@ function CommunityForm({
               return
             }
             
-            console.log('Chamando onSave com:', formData)
             onSave(formData)
           }}
         >
