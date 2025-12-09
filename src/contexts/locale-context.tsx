@@ -29,17 +29,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [currencySymbol, setCurrencySymbol] = useState<string>('MT')
   const [loading, setLoading] = useState(true)
 
-  // Carregar localização e configurações salvas
-  useEffect(() => {
-    // CORREÇÃO CRÍTICA: Garantir que nunca executa durante SSR/build
-    if (typeof window === 'undefined') {
-      setLoading(false)
-      return
-    }
-    loadLocaleSettings()
-  }, [])
-
-  const loadLocaleSettings = async () => {
+  const loadLocaleSettings = useCallback(async () => {
     try {
       // CORREÇÃO CRÍTICA: Verificar novamente se estamos no cliente antes de acessar localStorage
       // Isso garante que nunca executa durante SSR/build
@@ -108,7 +98,17 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       console.error('Erro ao carregar configurações de locale:', error)
       setLoading(false)
     }
-  }
+  }, [])
+
+  // Carregar localização e configurações salvas
+  useEffect(() => {
+    // CORREÇÃO CRÍTICA: Garantir que nunca executa durante SSR/build
+    if (typeof window === 'undefined') {
+      setLoading(false)
+      return
+    }
+    loadLocaleSettings()
+  }, [loadLocaleSettings])
 
   // Detectar localização em background (não bloqueia o carregamento)
   const detectLocationInBackground = async (savedLocale: Locale | null, savedCurrency: string | null) => {
@@ -212,7 +212,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('countryCode')
     }
     await loadLocaleSettings()
-  }, [])
+  }, [loadLocaleSettings])
 
   const handleSetCurrency = useCallback((newCurrency: string) => {
     setCurrency(newCurrency)

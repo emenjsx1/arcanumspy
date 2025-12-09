@@ -545,6 +545,7 @@ function OfferForm({
         analysis: (offer as any)?.analysis || '',
         scaled_at: (offer as any)?.scaled_at || null,
         expires_at: (offer as any)?.expires_at || null,
+        image_url: (offer as any)?.image_url || '',
       })
     } else {
         // Reset form quando não há oferta

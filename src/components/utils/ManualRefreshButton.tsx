@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth-store'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,7 @@ export function ManualRefreshButton() {
   const { isAuthenticated } = useAuthStore()
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
     
     try {
@@ -47,7 +47,7 @@ export function ManualRefreshButton() {
     } finally {
       setIsRefreshing(false)
     }
-  }
+  }, [router])
 
   // Expor função global
   useEffect(() => {
@@ -60,7 +60,7 @@ export function ManualRefreshButton() {
         delete (window as any).forceRefresh
       }
     }
-  }, [])
+  }, [handleRefresh])
 
   // Não mostrar se não estiver autenticado
   if (!isAuthenticated) {
