@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase/client'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { OfferWithCategory } from '@/lib/db/offers'
 
 export interface DashboardStats {
   offersViewed: number // Este mês
@@ -68,13 +69,13 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       // Processar os dados
       if (activitiesThisMonth && activitiesThisMonth.length > 0) {
         // Contar ofertas únicas visualizadas este mês
-        const uniqueOffersThisMonth = new Set(activitiesThisMonth.map(a => a.offer_id).filter(Boolean))
+        const uniqueOffersThisMonth = new Set(activitiesThisMonth.map((a: any) => a.offer_id).filter(Boolean))
         viewsCount = uniqueOffersThisMonth.size
       }
 
       if (activitiesTotal && activitiesTotal.length > 0) {
         // Contar ofertas únicas visualizadas no total
-        const uniqueOffersTotal = new Set(activitiesTotal.map(a => a.offer_id).filter(Boolean))
+        const uniqueOffersTotal = new Set(activitiesTotal.map((a: any) => a.offer_id).filter(Boolean))
         viewsCountTotal = uniqueOffersTotal.size
       }
     } catch (error) {
@@ -99,7 +100,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
           .eq('user_id', user.id)
         
         if (viewsTotal) {
-          const uniqueOffersTotal = new Set(viewsTotal.map(v => v.offer_id).filter(Boolean))
+          const uniqueOffersTotal = new Set(viewsTotal.map((v: any) => v.offer_id).filter(Boolean))
           viewsCountTotal = uniqueOffersTotal.size
         }
       } catch (fallbackError) {
@@ -348,7 +349,7 @@ export async function getRecentActivities(limit = 10): Promise<RecentActivity[]>
           .in('id', offerIds)
         
         if (offers) {
-          offersMap = offers.reduce((acc, offer) => {
+          offersMap = offers.reduce((acc: Record<string, { id: string; title: string }>, offer) => {
             acc[offer.id] = offer
             return acc
           }, {} as Record<string, { id: string; title: string }>)
