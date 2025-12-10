@@ -9,32 +9,45 @@ const EMOLA_WALLET_ID = '993606'
 
 export async function POST(request: NextRequest) {
   try {
+    let user = null
+    
+    // Primeiro tentar via cookies
     const supabase = await createClient()
-    let { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    // Se não conseguir via cookies, tentar via header
-    if (authError || !user) {
+    const { data: { user: userFromCookies }, error: cookieError } = await supabase.auth.getUser()
+    
+    if (userFromCookies && !cookieError) {
+      user = userFromCookies
+    } else {
+      // Se não conseguir via cookies, tentar via header
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7)
-        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-          global: {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        })
-        const { data: { user: userFromToken } } = await tempClient.auth.getUser(token)
-        if (userFromToken) {
-          user = userFromToken
+        try {
+          // Validar token diretamente com Supabase
+          const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+          const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          
+          if (!supabaseUrl || !supabaseAnonKey) {
+            console.error('Variáveis de ambiente do Supabase não configuradas')
+          } else {
+            const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey)
+            const { data: { user: userFromToken }, error: tokenError } = await tempClient.auth.getUser(token)
+            
+            if (userFromToken && !tokenError) {
+              user = userFromToken
+            } else {
+              console.error('Erro ao validar token:', tokenError?.message || 'Token inválido')
+            }
+          }
+        } catch (error: any) {
+          console.error('Erro ao criar cliente temporário:', error.message || error)
         }
       }
     }
 
     if (!user) {
+      console.error('Usuário não autenticado. Cookie error:', cookieError?.message)
       return NextResponse.json(
         { success: false, message: "Não autenticado. Faça login para continuar." },
         { status: 401 }
