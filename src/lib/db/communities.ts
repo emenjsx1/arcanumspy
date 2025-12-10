@@ -312,7 +312,7 @@ export async function adminUpdateCommunity(id: string, updates: CommunityUpdate)
 
     const { data, error } = await adminClient
       .from('communities')
-      .update(updateData)
+      .update(updateData as any)
       .eq('id', id)
       .select()
       .single()

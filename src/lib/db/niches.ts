@@ -153,7 +153,7 @@ export async function adminUpdateNiche(id: string, updates: NicheUpdate): Promis
 
     const { data, error } = await supabase
       .from('niches')
-      .update(updateData)
+      .update(updateData as any)
       .eq('id', id)
       .select()
       .single()
