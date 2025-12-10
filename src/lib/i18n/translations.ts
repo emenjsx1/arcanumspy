@@ -39,28 +39,6 @@ export interface Translations {
     medicalPlans: string
     medicalPlansAnswer: string
   }
-  credits: {
-    title: string
-    balance: string
-    totalLoaded: string
-    totalConsumed: string
-    purchase: string
-    purchaseCredits: string
-    customAmount: string
-    transactions: string
-    transactionHistory: string
-    noTransactions: string
-    category: string
-    description: string
-    date: string
-    amount: string
-    balanceAfter: string
-    purchasing: string
-    purchaseError: string
-    purchaseSuccess: string
-    lowBalance: string
-    blocked: string
-  }
   dashboard: {
     welcome: string
     overview: string
@@ -129,28 +107,6 @@ const translations: Record<Locale, Translations> = {
       medicalPlans: 'Os planos são específicos para área médica?',
       medicalPlansAnswer: 'Sim! Todos os planos incluem acesso prioritário a ofertas da categoria Medical, além de outras categorias relevantes para profissionais da saúde.',
     },
-    credits: {
-      title: 'Créditos',
-      balance: 'Saldo',
-      totalLoaded: 'Total Carregado',
-      totalConsumed: 'Total Consumido',
-      purchase: 'Comprar',
-      purchaseCredits: 'Comprar Créditos',
-      customAmount: 'Valor Personalizado',
-      transactions: 'Transações',
-      transactionHistory: 'Histórico de Transações',
-      noTransactions: 'Nenhuma transação encontrada',
-      category: 'Categoria',
-      description: 'Descrição',
-      date: 'Data',
-      amount: 'Valor',
-      balanceAfter: 'Saldo Após',
-      purchasing: 'Processando compra...',
-      purchaseError: 'Erro ao comprar',
-      purchaseSuccess: 'Créditos comprados com sucesso!',
-      lowBalance: 'Saldo baixo',
-      blocked: 'Conta bloqueada',
-    },
     dashboard: {
       welcome: 'Bem-vindo',
       overview: 'Visão Geral',
@@ -216,28 +172,6 @@ const translations: Record<Locale, Translations> = {
       annualDiscountAnswer: 'Sim! Ao pagar anualmente, poupa significativamente comparado ao pagamento mensal.',
       medicalPlans: 'Os planos são específicos para área médica?',
       medicalPlansAnswer: 'Sim! Todos os planos incluem acesso prioritário a ofertas da categoria Medical, além de outras categorias relevantes para profissionais de saúde.',
-    },
-    credits: {
-      title: 'Créditos',
-      balance: 'Saldo',
-      totalLoaded: 'Total Carregado',
-      totalConsumed: 'Total Consumido',
-      purchase: 'Comprar',
-      purchaseCredits: 'Comprar Créditos',
-      customAmount: 'Valor Personalizado',
-      transactions: 'Transações',
-      transactionHistory: 'Histórico de Transações',
-      noTransactions: 'Nenhuma transação encontrada',
-      category: 'Categoria',
-      description: 'Descrição',
-      date: 'Data',
-      amount: 'Valor',
-      balanceAfter: 'Saldo Após',
-      purchasing: 'A processar compra...',
-      purchaseError: 'Erro ao comprar',
-      purchaseSuccess: 'Créditos comprados com sucesso!',
-      lowBalance: 'Saldo baixo',
-      blocked: 'Conta bloqueada',
     },
     dashboard: {
       welcome: 'Bem-vindo',
@@ -305,28 +239,6 @@ const translations: Record<Locale, Translations> = {
       medicalPlans: 'Are the plans specific to the medical field?',
       medicalPlansAnswer: 'Yes! All plans include priority access to Medical category offers, as well as other categories relevant to healthcare professionals.',
     },
-    credits: {
-      title: 'Credits',
-      balance: 'Balance',
-      totalLoaded: 'Total Loaded',
-      totalConsumed: 'Total Consumed',
-      purchase: 'Purchase',
-      purchaseCredits: 'Purchase Credits',
-      customAmount: 'Custom Amount',
-      transactions: 'Transactions',
-      transactionHistory: 'Transaction History',
-      noTransactions: 'No transactions found',
-      category: 'Category',
-      description: 'Description',
-      date: 'Date',
-      amount: 'Amount',
-      balanceAfter: 'Balance After',
-      purchasing: 'Processing purchase...',
-      purchaseError: 'Purchase error',
-      purchaseSuccess: 'Credits purchased successfully!',
-      lowBalance: 'Low balance',
-      blocked: 'Account blocked',
-    },
     dashboard: {
       welcome: 'Welcome',
       overview: 'Overview',
@@ -393,28 +305,6 @@ const translations: Record<Locale, Translations> = {
       medicalPlans: '¿Los planes son específicos para el área médica?',
       medicalPlansAnswer: '¡Sí! Todos los planes incluyen acceso prioritario a ofertas de la categoría Medical, además de otras categorías relevantes para profesionales de la salud.',
     },
-    credits: {
-      title: 'Créditos',
-      balance: 'Saldo',
-      totalLoaded: 'Total Cargado',
-      totalConsumed: 'Total Consumido',
-      purchase: 'Comprar',
-      purchaseCredits: 'Comprar Créditos',
-      customAmount: 'Cantidad Personalizada',
-      transactions: 'Transacciones',
-      transactionHistory: 'Historial de Transacciones',
-      noTransactions: 'No se encontraron transacciones',
-      category: 'Categoría',
-      description: 'Descripción',
-      date: 'Fecha',
-      amount: 'Cantidad',
-      balanceAfter: 'Saldo Después',
-      purchasing: 'Procesando compra...',
-      purchaseError: 'Error al comprar',
-      purchaseSuccess: '¡Créditos comprados con éxito!',
-      lowBalance: 'Saldo bajo',
-      blocked: 'Cuenta bloqueada',
-    },
     dashboard: {
       welcome: 'Bienvenido',
       overview: 'Resumen',
@@ -480,28 +370,6 @@ const translations: Record<Locale, Translations> = {
       annualDiscountAnswer: 'Oui! En payant annuellement, vous économisez considérablement par rapport au paiement mensuel.',
       medicalPlans: 'Les plans sont-ils spécifiques au domaine médical?',
       medicalPlansAnswer: 'Oui! Tous les plans incluent un accès prioritaire aux offres de la catégorie Medical, ainsi qu\'à d\'autres catégories pertinentes pour les professionnels de la santé.',
-    },
-    credits: {
-      title: 'Crédits',
-      balance: 'Solde',
-      totalLoaded: 'Total Chargé',
-      totalConsumed: 'Total Consommé',
-      purchase: 'Acheter',
-      purchaseCredits: 'Acheter des Crédits',
-      customAmount: 'Montant Personnalisé',
-      transactions: 'Transactions',
-      transactionHistory: 'Historique des Transactions',
-      noTransactions: 'Aucune transaction trouvée',
-      category: 'Catégorie',
-      description: 'Description',
-      date: 'Date',
-      amount: 'Montant',
-      balanceAfter: 'Solde Après',
-      purchasing: 'Traitement de l\'achat...',
-      purchaseError: 'Erreur d\'achat',
-      purchaseSuccess: 'Crédits achetés avec succès!',
-      lowBalance: 'Solde faible',
-      blocked: 'Compte bloqué',
     },
     dashboard: {
       welcome: 'Bienvenue',

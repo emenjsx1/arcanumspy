@@ -262,46 +262,8 @@ export async function registerOfferView(offerId: string) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Verificar se o usuário já visualizou esta oferta antes (para não descontar créditos novamente)
-    let alreadyViewed = false
-    try {
-      // Verificar em user_activities primeiro (mais preciso)
-      const { data: existingActivities, error: activitiesError } = await supabase
-        .from('user_activities')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('offer_id', offerId)
-        .eq('type', 'OFFER_VIEW')
-        .limit(1)
-
-      // Se houver erro mas não for de tabela inexistente, logar
-      if (activitiesError) {
-        // Se a tabela não existir, ignorar erro e continuar
-        if (activitiesError.code !== '42P01' && activitiesError.code !== 'PGRST202') {
-          console.warn('⚠️ [registerOfferView] Erro ao verificar user_activities:', activitiesError.message)
-        }
-      } else if (existingActivities && existingActivities.length > 0) {
-        alreadyViewed = true
-      }
-
-      // Se não encontrou em user_activities, verificar em offer_views como fallback
-      if (!alreadyViewed) {
-        const { count } = await supabase
-          .from('offer_views')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('offer_id', offerId)
-        
-        if (count && count > 0) {
-          alreadyViewed = true
-        }
-      }
-    } catch (checkError: any) {
-      // Se houver erro ao verificar, assumir que não foi visualizada (descontar créditos)
-      console.warn('⚠️ [registerOfferView] Erro ao verificar visualização anterior:', checkError.message)
-    }
-
-    // Registrar visualização na tabela offer_views (para histórico) - sempre registrar
+    // Sistema baseado em planos - não há mais cobrança de créditos
+    // Registrar visualização na tabela offer_views (para histórico)
     const { error: viewError } = await supabase
       .from('offer_views')
       .insert({
@@ -316,80 +278,21 @@ export async function registerOfferView(offerId: string) {
       }
     }
 
-    // Só descontar créditos se for a primeira visualização
-    if (!alreadyViewed) {
-      try {
-        // Obter token de sessão para autenticação
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (!session?.access_token) {
-          console.warn('⚠️ [registerOfferView] Sem token de sessão, não é possível debitar créditos')
-          return
-        }
-
-        // Descontar 1 crédito (não 5) pela primeira visualização
-        const response = await fetch('/api/credits/debit', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            amount: 1,
-            category: 'offer_view',
-            description: `Visualização de oferta: ${offerId}`,
-            metadata: { offer_id: offerId },
-            allowNegative: true,
-          }),
-          credentials: 'include',
+    // Registrar atividade na tabela user_activities (se disponível)
+    try {
+      await supabase
+        .from('user_activities')
+        .insert({
+          user_id: user.id,
+          type: 'OFFER_VIEW',
+          offer_id: offerId,
+          credits_used: 0, // Mantido para compatibilidade, mas não há mais cobrança
+          metadata: { offer_id: offerId, action: 'view' }
         })
-        
-        if (response.ok) {
-          // Registrar atividade na tabela user_activities após debitar créditos com sucesso
-          try {
-            await supabase
-              .from('user_activities')
-              .insert({
-                user_id: user.id,
-                type: 'OFFER_VIEW',
-                offer_id: offerId,
-                credits_used: 1,
-                metadata: { offer_id: offerId, action: 'view', first_view: true }
-              })
-          } catch (activityError: any) {
-            // Se a tabela não existir ainda, apenas logar (não bloquear)
-            if (activityError?.code !== '42P01' && activityError?.code !== 'PGRST202') {
-              console.warn('⚠️ [registerOfferView] Erro ao registrar atividade:', activityError.message)
-            }
-          }
-        } else {
-          const errorData = await response.json().catch(() => ({}))
-          console.warn('⚠️ [registerOfferView] Erro ao debitar créditos:', errorData.error || response.statusText)
-        }
-      } catch (creditError: any) {
-        // Silenciar erro se for apenas um problema de rede ou API não disponível
-        // Não bloquear a visualização se houver erro ao debitar créditos
-        if (creditError?.message && !creditError.message.includes('Failed to fetch')) {
-          console.warn('⚠️ [registerOfferView] Erro ao debitar créditos:', creditError.message)
-        }
-      }
-    } else {
-      // Registrar atividade sem descontar créditos (visualização repetida)
-      try {
-        await supabase
-          .from('user_activities')
-          .insert({
-            user_id: user.id,
-            type: 'OFFER_VIEW',
-            offer_id: offerId,
-            credits_used: 0,
-            metadata: { offer_id: offerId, action: 'view', first_view: false }
-          })
-      } catch (activityError: any) {
-        // Ignorar erro se tabela não existir
-        if (activityError?.code !== '42P01' && activityError?.code !== 'PGRST202') {
-          console.warn('⚠️ [registerOfferView] Erro ao registrar atividade (visualização repetida):', activityError.message)
-        }
+    } catch (activityError: any) {
+      // Se a tabela não existir, apenas logar (não bloquear)
+      if (activityError?.code !== '42P01' && activityError?.code !== 'PGRST202') {
+        console.warn('⚠️ [registerOfferView] Erro ao registrar atividade:', activityError.message)
       }
     }
   } catch (error) {

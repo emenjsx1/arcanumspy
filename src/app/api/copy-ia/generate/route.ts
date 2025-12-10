@@ -293,26 +293,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // COBRAR 5 CRÉDITOS pela geração de copy
-    try {
-      const { debitCredits } = await import('@/lib/db/credits')
-      
-      await debitCredits(
-        user.id,
-        5,
-        'copy_generation',
-        `Geração de copy IA - ${body.tipo_criativo}`,
-        {
-          nicho: body.nicho,
-          tipo_criativo: body.tipo_criativo,
-          modelo: body.modelo,
-        },
-        true // Permite saldo negativo
-      )
-    } catch (creditError) {
-      console.error('❌ Erro ao debitar créditos pela geração de copy:', creditError)
-      // Não bloquear a geração se houver erro ao debitar créditos
-    }
+    // Sistema baseado em planos - não há mais cobrança de créditos
 
     // 1. PRIMEIRO: ENVIAR WEBHOOK IMEDIATAMENTE (assim que clicar em Gerar Copy)
     

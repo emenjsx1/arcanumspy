@@ -272,25 +272,7 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          // Criar registro de créditos (se não existir)
-          try {
-            const { error: creditsError } = await supabase
-              .from('user_credits')
-              .insert({
-                user_id: data.user.id,
-                balance: 0,
-                total_loaded: 0,
-                total_consumed: 0,
-              })
-              .select()
-              .single()
-
-            if (creditsError && creditsError.code !== '23505') { // Ignorar erro de duplicata
-              console.warn('⚠️ Erro ao criar créditos (não crítico):', creditsError.message)
-            }
-          } catch (creditsErr) {
-            console.warn('⚠️ Erro ao criar créditos (não crítico):', creditsErr)
-          }
+          // Sistema baseado em planos - não há mais criação de créditos
 
           // 3. Buscar perfil criado
           await new Promise(resolve => setTimeout(resolve, 500))

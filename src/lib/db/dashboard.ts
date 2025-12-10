@@ -6,8 +6,6 @@ export interface DashboardStats {
   offersViewedTotal: number // Total
   favoritesCount: number
   categoriesAccessed: number
-  creditsUsed: number // Este mês
-  creditsUsedTotal: number // Total
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -19,8 +17,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         offersViewedTotal: 0,
         favoritesCount: 0,
         categoriesAccessed: 0,
-        creditsUsed: 0,
-        creditsUsedTotal: 0,
       }
     }
 
@@ -31,8 +27,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
     let viewsCount = 0
     let viewsCountTotal = 0
-    let creditsUsed = 0
-    let creditsUsedTotal = 0
 
     // Tentar buscar de user_activities primeiro (mais preciso)
     // Usar adminClient para evitar problemas de RLS
@@ -45,7 +39,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       
       const { data: initialActivitiesThisMonth, error: activitiesError } = await adminClient
         .from('user_activities')
-        .select('credits_used, offer_id')
+        .select('offer_id')
         .eq('user_id', user.id)
         .eq('type', 'OFFER_VIEW')
         .gte('created_at', startOfMonth.toISOString())
@@ -53,7 +47,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       // Total
       const { data: initialActivitiesTotal, error: activitiesTotalError } = await adminClient
         .from('user_activities')
-        .select('credits_used, offer_id')
+        .select('offer_id')
         .eq('user_id', user.id)
         .eq('type', 'OFFER_VIEW')
 
@@ -76,14 +70,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         // Contar ofertas únicas visualizadas este mês
         const uniqueOffersThisMonth = new Set(activitiesThisMonth.map(a => a.offer_id).filter(Boolean))
         viewsCount = uniqueOffersThisMonth.size
-        creditsUsed = activitiesThisMonth.reduce((sum, a) => sum + (a.credits_used || 0), 0)
       }
 
       if (activitiesTotal && activitiesTotal.length > 0) {
         // Contar ofertas únicas visualizadas no total
         const uniqueOffersTotal = new Set(activitiesTotal.map(a => a.offer_id).filter(Boolean))
         viewsCountTotal = uniqueOffersTotal.size
-        creditsUsedTotal = activitiesTotal.reduce((sum, a) => sum + (a.credits_used || 0), 0)
       }
     } catch (error) {
       // Se user_activities não existir ou houver qualquer erro, usar offer_views como fallback
@@ -96,9 +88,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
           .gte('viewed_at', startOfMonth.toISOString())
         
         if (viewsThisMonth) {
-          const uniqueOffersThisMonth = new Set(viewsThisMonth.map(v => v.offer_id).filter(Boolean))
+          const uniqueOffersThisMonth = new Set(viewsThisMonth.map((v: any) => v.offer_id).filter(Boolean))
           viewsCount = uniqueOffersThisMonth.size
-          creditsUsed = viewsCount * 1 // 1 crédito por oferta nova
         }
 
         // Total
@@ -110,7 +101,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         if (viewsTotal) {
           const uniqueOffersTotal = new Set(viewsTotal.map(v => v.offer_id).filter(Boolean))
           viewsCountTotal = uniqueOffersTotal.size
-          creditsUsedTotal = viewsCountTotal * 1 // 1 crédito por oferta nova
         }
       } catch (fallbackError) {
         console.warn('⚠️ [getDashboardStats] Erro ao buscar visualizações:', fallbackError)
@@ -138,8 +128,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       offersViewedTotal: viewsCountTotal,
       favoritesCount: favoritesCount || 0,
       categoriesAccessed: uniqueCategories.size,
-      creditsUsed,
-      creditsUsedTotal,
     }
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
@@ -148,8 +136,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       offersViewedTotal: 0,
       favoritesCount: 0,
       categoriesAccessed: 0,
-      creditsUsed: 0,
-      creditsUsedTotal: 0,
     }
   }
 }

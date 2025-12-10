@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getCreditStats } from "@/lib/db/credits"
 
 export async function GET(request: NextRequest) {
   try {
@@ -66,43 +65,34 @@ export async function GET(request: NextRequest) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     startOfMonth.setHours(0, 0, 0, 0)
 
-    // Buscar estatísticas de créditos
-    const creditStats = await getCreditStats()
-
-    // Buscar compras de créditos (transações de crédito do tipo purchase)
-    const { data: purchases } = await adminClient
-      .from('credit_transactions')
+    // Sistema baseado em planos - não há mais compras de créditos
+    // Buscar assinaturas e pagamentos de planos
+    const { data: subscriptions } = await adminClient
+      .from('subscriptions')
       .select(`
         *,
         profile:profiles(name, email)
       `)
-      .eq('type', 'credit')
-      .eq('category', 'purchase')
       .order('created_at', { ascending: false })
       .limit(50)
 
-    // Calcular receita
-    const totalRevenue = ((purchases || []) as any[]).reduce((sum, p: any) => {
-      // Assumir que cada crédito custa R$ 0,10 (ajustar conforme necessário)
-      return sum + ((p.amount || 0) * 0.10)
+    // Calcular receita baseada em assinaturas
+    const totalRevenue = ((subscriptions || []) as any[]).reduce((sum, s: any) => {
+      // Receita baseada no plano (ajustar conforme necessário)
+      return sum + ((s.amount_cents || 0) / 100)
     }, 0)
 
-    const monthlyPurchases = (purchases || []).filter((p: any) => {
-      const purchaseDate = new Date(p.created_at)
-      return purchaseDate >= startOfMonth
+    const monthlySubscriptions = (subscriptions || []).filter((s: any) => {
+      const subDate = new Date(s.created_at)
+      return subDate >= startOfMonth
     })
 
-    const monthlyRevenue = monthlyPurchases.reduce((sum, p: any) => {
-      return sum + (((p as any).amount || 0) * 0.10)
+    const monthlyRevenue = monthlySubscriptions.reduce((sum, s: any) => {
+      return sum + (((s as any).amount_cents || 0) / 100)
     }, 0)
 
     // Estatísticas de ferramentas (removido: voice cloning desabilitado)
     const totalVoices = { count: 0 }
-
-    // Créditos gastos com criação de vozes (removido: voice cloning desabilitado)
-    const voiceActivities: { data: any[] | null } = { data: null }
-
-    const voiceCreationCredits = 0 // Removido: voice cloning desabilitado
 
     // Gerações de áudio
     let totalAudioGenerations = 0
@@ -114,20 +104,6 @@ export async function GET(request: NextRequest) {
     } catch {
       totalAudioGenerations = 0
     }
-
-    // Créditos gastos com geração de áudio
-    let audioActivities: { data: any[] | null } = { data: null }
-    try {
-      const result = await adminClient
-        .from('user_activities')
-        .select('credits_used')
-        .eq('type', 'AUDIO_GENERATION')
-      audioActivities = result
-    } catch {
-      audioActivities = { data: null }
-    }
-
-    const audioGenerationCredits = (audioActivities?.data || []).reduce((sum, a) => sum + (a.credits_used || 0), 0)
 
     // Visualizações de ofertas
     let totalOfferViews = 0
@@ -141,24 +117,18 @@ export async function GET(request: NextRequest) {
     }
 
     const stats = {
-      totalCreditsLoaded: creditStats.total_credits_loaded,
-      totalCreditsConsumed: creditStats.total_credits_consumed,
       totalRevenue,
       monthlyRevenue,
-      totalPurchases: purchases?.length || 0,
-      monthlyPurchases: monthlyPurchases.length,
+      totalSubscriptions: subscriptions?.length || 0,
+      monthlySubscriptions: monthlySubscriptions.length,
     }
 
     const toolStats = {
       voiceGeneration: {
         totalVoices: 0, // Removido: voice cloning desabilitado
-        totalCredits: voiceCreationCredits,
-        averageCreditsPerGeneration: 0, // Removido: voice cloning desabilitado
       },
       audioGeneration: {
         totalGenerations: totalAudioGenerations || 0,
-        totalCredits: audioGenerationCredits,
-        averageCreditsPerGeneration: totalAudioGenerations ? audioGenerationCredits / totalAudioGenerations : 0,
       },
       offerViews: {
         totalViews: totalOfferViews || 0,
@@ -168,13 +138,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       stats,
-      purchases: (purchases || []).map((p: any) => ({
-        id: p.id,
-        user_id: p.user_id,
-        user_name: p.profile?.name,
-        user_email: p.profile?.email,
-        amount: (p as any).amount,
-        created_at: p.created_at,
+      subscriptions: (subscriptions || []).map((s: any) => ({
+        id: s.id,
+        user_id: s.user_id,
+        user_name: s.profile?.name,
+        user_email: s.profile?.email,
+        plan_name: s.plan_name,
+        amount_cents: s.amount_cents,
+        created_at: s.created_at,
       })),
       toolStats,
     })

@@ -1,31 +1,26 @@
 export interface FinancialStats {
-  totalCreditsLoaded: number
-  totalCreditsConsumed: number
   totalRevenue: number
   monthlyRevenue: number
-  totalPurchases: number
-  monthlyPurchases: number
+  totalSubscriptions: number
+  monthlySubscriptions: number
 }
 
-export interface CreditPurchase {
+export interface Subscription {
   id: string
   user_id: string
   user_name?: string
   user_email?: string
-  amount: number
+  plan_name?: string
+  amount_cents?: number
   created_at: string
 }
 
 export interface ToolStats {
   voiceGeneration: {
     totalVoices: number
-    totalCredits: number
-    averageCreditsPerGeneration: number
   }
   audioGeneration: {
     totalGenerations: number
-    totalCredits: number
-    averageCreditsPerGeneration: number
   }
   offerViews: {
     totalViews: number

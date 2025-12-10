@@ -91,14 +91,14 @@ export async function getActiveCommunitiesForUser(): Promise<CommunityWithStats[
 
 /**
  * User joins a community
- * Se a comunidade for paga (is_paid = true), debita 120 créditos por mês
+ * NOTA: Sistema de créditos removido - usando planos/subscrição
  */
 export async function joinCommunity(userId: string, communityId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    // Verificar se a comunidade existe e se é paga
+    // Verificar se a comunidade existe
     const { data: community, error: communityError } = await supabase
       .from('communities')
-      .select('is_paid, is_active')
+      .select('is_active')
       .eq('id', communityId)
       .single()
 
@@ -108,69 +108,6 @@ export async function joinCommunity(userId: string, communityId: string): Promis
 
     if (!community.is_active) {
       throw new Error('Esta comunidade não está ativa')
-    }
-
-    // Se a comunidade for paga, verificar saldo e debitar créditos
-    if (community.is_paid) {
-      const creditsRequired = 120 // 120 créditos por mês
-      
-      // CORREÇÃO: Import dinâmico usando webpackIgnore para evitar análise durante build
-      // Isso garante que o módulo só seja carregado em runtime, não durante o build
-      const creditsModule = await import(
-        /* webpackIgnore: true */
-        '@/lib/db/credits'
-      )
-      const { getUserCreditBalance, debitCredits } = creditsModule
-      
-      // Verificar saldo usando função server-side
-      const balanceData = await getUserCreditBalance(userId)
-      const balance = balanceData?.balance || 0
-
-      if (balance < creditsRequired) {
-        return {
-          success: false,
-          error: `Saldo insuficiente. Você precisa de ${creditsRequired} créditos para acessar esta comunidade. Seu saldo atual: ${balance} créditos.`
-        }
-      }
-
-      // Verificar se já é membro (para não debitar créditos novamente)
-      const { data: existingMember } = await supabase
-        .from('community_members')
-        .select('id, joined_at')
-        .eq('user_id', userId)
-        .eq('community_id', communityId)
-        .single()
-
-      // Se não for membro, ou se a última assinatura foi há mais de 30 dias, debitar créditos
-      const shouldCharge = !existingMember || (() => {
-        if (!existingMember.joined_at) return true
-        const joinedDate = new Date(existingMember.joined_at)
-        const now = new Date()
-        const daysSinceJoined = (now.getTime() - joinedDate.getTime()) / (1000 * 60 * 60 * 24)
-        return daysSinceJoined >= 30 // Renovar a cada 30 dias
-      })()
-
-      if (shouldCharge) {
-        // Debitar créditos usando função server-side
-        const debitResult = await debitCredits(
-          userId,
-          creditsRequired,
-          'offer_view',
-          `Acesso à comunidade por 1 mês`,
-          {
-            community_id: communityId,
-            period_days: 30,
-            type: 'community_access',
-          }
-        )
-
-        if (!debitResult.success) {
-          return {
-            success: false,
-            error: debitResult.error || 'Erro ao debitar créditos'
-          }
-        }
-      }
     }
 
     // Adicionar usuário à comunidade (ou atualizar se já for membro)

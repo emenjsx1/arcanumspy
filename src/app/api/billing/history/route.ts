@@ -114,43 +114,7 @@ export async function GET(request: NextRequest) {
       console.warn('⚠️ Erro ao buscar subscriptions:', error)
     }
 
-    // 3. Buscar compras de créditos (tabela credit_transactions com categoria 'purchase')
-    try {
-      const { data: creditPurchases, error: creditError } = await supabase
-        .from('credit_transactions')
-        .select(`
-          *,
-          package:credit_packages(name, credits_amount, price_cents)
-        `)
-        .eq('user_id', user.id)
-        .eq('type', 'credit')
-        .eq('category', 'purchase')
-        .order('created_at', { ascending: false })
-
-      if (!creditError && creditPurchases) {
-        creditPurchases.forEach((transaction: any) => {
-          history.push({
-            id: transaction.id,
-            type: 'credit_purchase',
-            date: transaction.created_at,
-            description: transaction.package 
-              ? `Compra de Créditos - ${transaction.package.name} (${transaction.package.credits_amount} créditos)`
-              : `Compra de Créditos - ${transaction.amount} créditos`,
-            plan: transaction.package?.name || 'Pacote de Créditos',
-            amount: transaction.package?.price_cents 
-              ? transaction.package.price_cents / 100 
-              : transaction.amount || 0,
-            currency: 'USD',
-            status: 'completed',
-            invoice: `#CRED-${transaction.id.substring(0, 8).toUpperCase()}`,
-            credits_amount: transaction.amount || transaction.package?.credits_amount,
-            package_id: transaction.package_id,
-          })
-        })
-      }
-    } catch (error) {
-      console.warn('⚠️ Erro ao buscar credit_transactions:', error)
-    }
+    // Sistema baseado em planos - não há mais compras de créditos
 
     // Ordenar por data (mais recente primeiro)
     history.sort((a, b) => {

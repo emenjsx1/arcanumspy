@@ -181,7 +181,7 @@ export async function removeBackground(
             statusCode: res.statusCode,
             imageSize: imageBuffer.length,
             contentType: res.headers['content-type'],
-            creditsCharged: res.headers['x-credits-charged']
+            // Sistema baseado em planos - não há mais cobrança de créditos
           })
           resolve(imageBuffer)
         } else {

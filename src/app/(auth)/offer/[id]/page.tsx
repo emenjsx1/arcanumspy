@@ -60,13 +60,13 @@ export default function OfferDetailsPage() {
     if (offer && offerId) {
       // Registrar visualização de forma assíncrona sem bloquear o render
       registerOfferView(offerId).catch((error) => {
-        console.error('Error debiting credits for offer view:', error)
+        console.error('Error registering offer view:', error)
         // Não mostrar erro ao usuário, apenas logar
       })
     }
   }, [offer, offerId])
 
-  // Sistema baseado apenas em créditos - não há mais planos
+  // Sistema baseado em planos - não há mais cobrança de créditos
 
   const getCountryIcon = (country: string | { code?: string; name?: string; flag?: string } | null | undefined) => {
     if (!country) return <Globe className="h-3 w-3 inline" />
