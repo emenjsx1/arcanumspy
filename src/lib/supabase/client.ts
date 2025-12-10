@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 
 // Read environment variables directly
+// In Next.js, NEXT_PUBLIC_* variables are injected at build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
