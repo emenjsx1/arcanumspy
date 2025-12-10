@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { Database } from "@/types/database"
+
+type SubscriptionUpdate = Database['public']['Tables']['subscriptions']['Update']
 
 export async function PUT(
   request: Request,
@@ -61,14 +64,16 @@ export async function PUT(
     
     if (currentSubscription) {
       // Update existing subscription
-      const { data, error } = await adminClient
-        .from('subscriptions')
-        .update({
-          plan_id,
-          current_period_end: currentPeriodEnd.toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', currentSubscription.id)
+      const updateData: SubscriptionUpdate = {
+        plan_id,
+        current_period_end: currentPeriodEnd.toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      const subscriptionId = (currentSubscription as any).id
+      const { data, error } = await (adminClient
+        .from('subscriptions') as any)
+        .update(updateData)
+        .eq('id', subscriptionId)
         .select(`
           *,
           plan:plans(*)

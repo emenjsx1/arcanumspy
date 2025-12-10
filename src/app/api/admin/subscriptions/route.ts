@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
 
     const profileMap = new Map<string, { id: string; name: string | null; email: string | null }>()
     if (profiles && Array.isArray(profiles)) {
-      profiles.forEach((p) => {
+      (profiles as Array<{ id: string; name: string | null; email: string | null }>).forEach((p) => {
         profileMap.set(p.id, p)
       })
     }

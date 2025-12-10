@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { Database } from "@/types/database"
+
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 export async function PUT(
   request: NextRequest,
@@ -21,7 +24,8 @@ export async function PUT(
       .eq('id', user.id)
       .single()
 
-    if (profileError || profile?.role !== 'admin') {
+    const profileData = profile as Pick<Profile, 'role'> | null
+    if (profileError || profileData?.role !== 'admin') {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
     }
 
@@ -61,8 +65,8 @@ export async function PUT(
     }
 
     // Atualizar o role usando admin client (bypass RLS)
-    const { data: updatedProfile, error: updateError } = await adminClient
-      .from('profiles')
+    const { data: updatedProfile, error: updateError } = await (adminClient
+      .from('profiles') as any)
       .update({ role })
       .eq('id', userId)
       .select()

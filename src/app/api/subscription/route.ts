@@ -92,13 +92,13 @@ export async function PUT(request: Request) {
     if (currentSubscription) {
       // Atualizar assinatura existente
       const subscriptionId = (currentSubscription as SubscriptionRow).id
-      const { data, error } = await (supabase
-        .from('subscriptions') as any)
-        .update({
-          plan_id,
-          current_period_end: currentPeriodEndISO,
-          updated_at: nowISO,
-        })
+      const updatePayload: any = {
+        plan_id,
+        current_period_end: currentPeriodEndISO,
+        updated_at: nowISO,
+      }
+      const { data, error } = await (supabase.from('subscriptions') as any)
+        .update(updatePayload)
         .eq('id', subscriptionId)
         .select(`
           *,
@@ -118,15 +118,15 @@ export async function PUT(request: Request) {
       subscription = data as SubscriptionWithPlan
     } else {
       // Criar nova assinatura
-      const { data, error } = await (supabase
-        .from('subscriptions') as any)
-        .insert({
-          user_id: user.id,
-          plan_id,
-          status: 'active',
-          started_at: nowISO,
-          current_period_end: currentPeriodEndISO,
-        })
+      const insertPayload: any = {
+        user_id: user.id,
+        plan_id,
+        status: 'active',
+        started_at: nowISO,
+        current_period_end: currentPeriodEndISO,
+      }
+      const { data, error } = await (supabase.from('subscriptions') as any)
+        .insert(insertPayload)
         .select(`
           *,
           plan:plans(*)
