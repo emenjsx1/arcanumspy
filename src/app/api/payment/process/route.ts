@@ -115,18 +115,35 @@ export async function POST(request: NextRequest) {
         const expiresAt = new Date()
         expiresAt.setDate(expiresAt.getDate() + (months * 30))
 
+        // Buscar ou criar plan_id (usar um plano padrão se não existir)
+        const { data: defaultPlan } = await (adminClient
+          .from('plans') as any)
+          .select('id')
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle()
+
+        const planId = defaultPlan?.id || null
+
         // Criar subscription
+        const subscriptionData: any = {
+          user_id: user.id,
+          plan_name: plan,
+          price: amountNum,
+          is_trial: false,
+          status: 'active',
+          created_at: now.toISOString(),
+          trial_ends_at: expiresAt.toISOString(),
+          current_period_end: expiresAt.toISOString(),
+        }
+
+        if (planId) {
+          subscriptionData.plan_id = planId
+        }
+
         const { data: subscription, error: subError } = await (adminClient
           .from('subscriptions') as any)
-          .insert({
-            user_id: user.id,
-            plan_name: plan,
-            price: amountNum,
-            is_trial: false,
-            status: 'active',
-            created_at: now.toISOString(),
-            trial_ends_at: expiresAt.toISOString(),
-          })
+          .insert(subscriptionData)
           .select()
           .single()
 
@@ -135,18 +152,28 @@ export async function POST(request: NextRequest) {
         }
 
         // Registrar pagamento
+        const paymentData: any = {
+          user_id: user.id,
+          amount: amountNum,
+          status: 'confirmed',
+          payment_type: 'subscription',
+          method: method,
+          transaction_id: transactionId,
+          notes: `Pagamento da assinatura ${plan} - ${months} meses`,
+          payment_date: now.toISOString(),
+        }
+
+        if (planId) {
+          paymentData.plan_id = planId
+        }
+
+        if (subscription?.id) {
+          paymentData.subscription_id = subscription.id
+        }
+
         const { error: paymentError } = await (adminClient
           .from('payments') as any)
-          .insert({
-            user_id: user.id,
-            amount: amountNum,
-            status: 'confirmed',
-            payment_type: 'subscription',
-            method: method,
-            transaction_id: transactionId,
-            notes: `Pagamento da assinatura ${plan} - ${months} meses`,
-            payment_date: now.toISOString(),
-          })
+          .insert(paymentData)
 
         if (paymentError) {
           console.error('Erro ao registrar pagamento:', paymentError)
