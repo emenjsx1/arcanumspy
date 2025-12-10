@@ -7,7 +7,9 @@ import FormData from 'form-data'
 import https from 'https'
 import { URL } from 'url'
 
-const REMOVE_BG_API_KEY = process.env.REMOVE_BG_API_KEY || "bJXsnNRdQCsHMDx8KaTD2wRU"
+// REMOVE_BG_API_KEY deve ser configurada como variável de ambiente
+// Não usar fallback hardcoded em produção por segurança
+const REMOVE_BG_API_KEY = process.env.REMOVE_BG_API_KEY
 const REMOVE_BG_API_URL = "https://api.remove.bg/v1.0/removebg"
 
 export interface RemoveBgOptions {

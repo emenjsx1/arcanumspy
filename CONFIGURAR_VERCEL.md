@@ -42,6 +42,17 @@ Adicione as seguintes variáveis **uma por uma**:
 |------|-------|----------|
 | `OPENAI_API_KEY` | `sua_openai_api_key` | Production, Preview, Development |
 
+#### Variáveis do Remove.bg (Opcional - para remoção de background)
+
+| Nome | Valor | Ambiente |
+|------|-------|----------|
+| `REMOVE_BG_API_KEY` | `sua_remove_bg_api_key` | Production, Preview, Development |
+
+**Onde encontrar:**
+- Acesse: https://www.remove.bg/api
+- Crie uma conta gratuita
+- Obtenha sua API key no painel
+
 ### Passo 3: Configurar via CLI (Alternativa)
 
 Se preferir usar a CLI do Vercel:

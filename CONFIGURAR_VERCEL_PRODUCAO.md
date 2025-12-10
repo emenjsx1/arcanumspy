@@ -46,6 +46,12 @@ O domínio `arcanumspy.com` está tentando usar o Supabase, mas as variáveis de
 - **Value**: `https://api.fish.audio`
 - **Environment**: Production, Preview, Development
 
+**REMOVE_BG_API_KEY**
+- **Value**: `sua-chave-remove-bg`
+- **Environment**: Production, Preview, Development
+- **Description**: Chave da API remove.bg para remoção de background de imagens
+- **Onde obter**: https://www.remove.bg/api (criar conta e obter API key)
+
 ### 3. Onde Obter as Credenciais do Supabase
 
 1. Acesse: https://app.supabase.com
