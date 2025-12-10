@@ -146,10 +146,12 @@ export async function GET(request: NextRequest) {
       .select('id, name, email')
       .in('id', userIds)
 
-    const profileMap = new Map<string, any>()
-    profiles?.forEach((p) => {
-      profileMap.set(p.id, p)
-    })
+    const profileMap = new Map<string, { id: string; name: string | null; email: string | null }>()
+    if (profiles && Array.isArray(profiles)) {
+      profiles.forEach((p) => {
+        profileMap.set(p.id, p)
+      })
+    }
 
     // Buscar pagamentos para cada assinatura
     const { data: payments } = await adminClient
