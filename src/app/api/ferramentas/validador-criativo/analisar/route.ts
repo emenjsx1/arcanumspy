@@ -332,8 +332,8 @@ export async function POST(request: NextRequest) {
 
     // Salvar histórico no banco (opcional)
     try {
-      await supabase
-        .from('validacoes_criativo')
+      await (supabase
+        .from('validacoes_criativo') as any)
         .insert({
           user_id: user.id,
           nome_arquivo: `Análise de ${criativos.length} criativo(s)`,

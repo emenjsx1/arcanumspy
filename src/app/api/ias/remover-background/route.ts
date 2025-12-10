@@ -118,8 +118,8 @@ export async function POST(request: NextRequest) {
     // CORREÇÃO: Salvar no banco apenas se a tabela existir (opcional, não quebra se falhar)
     try {
       const base64Image = buffer.toString('base64')
-      const { data, error } = await supabase
-        .from('imagens_processadas')
+      const { data, error } = await (supabase
+        .from('imagens_processadas') as any)
         .insert({
           user_id: user.id,
           tipo: 'remover_background',

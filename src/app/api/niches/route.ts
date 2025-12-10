@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    if ((profile as any)?.role !== 'admin') {
       return NextResponse.json(
         { error: "Não autorizado. Apenas administradores podem criar nichos." },
         { status: 403 }
@@ -201,8 +201,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: niche, error } = await adminClient
-      .from('niches')
+    const { data: niche, error } = await (adminClient
+      .from('niches') as any)
       .insert({
         name,
         slug: finalSlug,

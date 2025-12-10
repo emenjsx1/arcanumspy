@@ -35,7 +35,7 @@ export async function GET() {
       id: cat.id,
       name: cat.name,
       slug: cat.slug,
-      emoji: cat.icon || cat.emoji,
+      emoji: cat.icon || null,
       description: cat.description,
       is_premium: false,
       created_at: new Date().toISOString(),

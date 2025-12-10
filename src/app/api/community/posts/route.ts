@@ -138,7 +138,8 @@ export async function POST(request: NextRequest) {
       .eq('id', community_id)
       .single()
 
-    if (communityError || !community || !community.is_active) {
+    const communityData = community as { id: string; is_active: boolean } | null
+    if (communityError || !communityData || !communityData.is_active) {
       return NextResponse.json(
         { error: "Comunidade não encontrada ou inativa" },
         { status: 404 }
@@ -156,8 +157,8 @@ export async function POST(request: NextRequest) {
 
     // Se não for membro, adicionar automaticamente
     if (!membership) {
-      await supabase
-        .from('community_members')
+      await (supabase
+        .from('community_members') as any)
         .insert({
           user_id: user.id,
           community_id: community_id
@@ -165,8 +166,8 @@ export async function POST(request: NextRequest) {
         .select()
     }
 
-    const { data: post, error } = await supabase
-      .from('community_posts')
+    const { data: post, error } = await (supabase
+      .from('community_posts') as any)
       .insert({
         user_id: user.id,
         community_id,

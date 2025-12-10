@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
 
     // Salvar histórico no banco
     try {
-      const { data, error } = await supabase
-        .from('criptografias_texto')
+      const { data, error } = await (supabase
+        .from('criptografias_texto') as any)
         .insert({
           user_id: user.id,
           texto_original: acao === 'criptografar' ? textoOriginal : null,
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Descriptografar textos se necessário
-    const historico = (data || []).map(item => ({
+    const historico = (data || []).map((item: Record<string, any>) => ({
       ...item,
       texto_original: item.texto_original ? decryptIfNeeded(item.texto_original) : null,
       texto_criptografado: item.texto_criptografado ? decryptIfNeeded(item.texto_criptografado) : null

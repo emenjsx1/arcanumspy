@@ -50,8 +50,8 @@ export async function GET(request: Request) {
     }
 
     // Calcular totais
-    const receitas = transacoes?.filter(t => t.tipo === 'receita').reduce((sum, t) => sum + (t.valor || 0), 0) || 0
-    const despesas = transacoes?.filter(t => t.tipo === 'despesa').reduce((sum, t) => sum + (t.valor || 0), 0) || 0
+    const receitas = (transacoes as any[])?.filter((t: any) => t.tipo === 'receita').reduce((sum: number, t: any) => sum + (t.valor || 0), 0) || 0
+    const despesas = (transacoes as any[])?.filter((t: any) => t.tipo === 'despesa').reduce((sum: number, t: any) => sum + (t.valor || 0), 0) || 0
     const saldo = receitas - despesas
 
     return NextResponse.json({
@@ -124,8 +124,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: transacao, error } = await supabase
-      .from('transacoes_financeiras')
+    const { data: transacao, error } = await (supabase
+      .from('transacoes_financeiras') as any)
       .insert({
         user_id: user.id,
         tipo,

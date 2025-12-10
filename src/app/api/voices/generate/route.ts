@@ -107,7 +107,8 @@ export async function POST(request: NextRequest) {
         const fileName = `voice-generations/${user.id}/${Date.now()}.${params?.format || 'mp3'}`
         audioUrl = await saveToStorage(buffer, fileName)
       } catch (storageError: any) {
-        console.warning('⚠️ Erro ao salvar no storage:', storageError.message)
+        const storageErrorTyped = storageError as { message?: string; [key: string]: any }
+        console.warn('⚠️ Erro ao salvar no storage:', storageErrorTyped.message)
         // Continuar mesmo se falhar
       }
     }

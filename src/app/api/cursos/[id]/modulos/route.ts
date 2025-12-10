@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { CreateModuloInput } from "@/types/cursos"
+import { Database } from "@/types/database"
+
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 async function checkAdmin(request: NextRequest) {
   let isAdmin = false
@@ -19,7 +22,8 @@ async function checkAdmin(request: NextRequest) {
         .eq('id', userFromCookies.id)
         .single()
 
-      isAdmin = profile?.role === 'admin'
+      const profileData = profile as Pick<Profile, 'role'> | null
+      isAdmin = profileData?.role === 'admin'
     } else {
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
       if (authHeader?.startsWith('Bearer ')) {
@@ -46,7 +50,8 @@ async function checkAdmin(request: NextRequest) {
             .eq('id', tokenUser.id)
             .single()
 
-          isAdmin = profile?.role === 'admin'
+          const profileDataToken = profile as Pick<Profile, 'role'> | null
+          isAdmin = profileDataToken?.role === 'admin'
         }
       }
     }
@@ -81,17 +86,16 @@ export async function GET(
     const includeInactive = searchParams.get('include_inactive') === 'true'
 
     // Verificar se o curso existe e está ativo (se não for admin)
-    const cursoQuery = client
+    let cursoQuery = client
       .from('cursos')
       .select('id, is_active')
       .eq('id', params.id)
-      .single()
     
     if (!isAdmin) {
-      cursoQuery.eq('is_active', true)
+      cursoQuery = cursoQuery.eq('is_active', true)
     }
     
-    const { data: curso, error: cursoError } = await cursoQuery
+    const { data: curso, error: cursoError } = await cursoQuery.single()
     
     if (cursoError || !curso) {
       return NextResponse.json(
@@ -176,8 +180,8 @@ export async function POST(
         { status: 404 }
       )
     }
-    const { data, error } = await adminClient
-      .from('modulos')
+    const { data, error } = await (adminClient
+      .from('modulos') as any)
       .insert({
         curso_id: params.id,
         nome: body.nome,

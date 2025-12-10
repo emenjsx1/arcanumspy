@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UpdateCursoInput } from "@/types/cursos"
+import { Database } from "@/types/database"
+
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 async function checkAdmin(request: NextRequest) {
   let isAdmin = false
@@ -19,7 +22,8 @@ async function checkAdmin(request: NextRequest) {
         .eq('id', userFromCookies.id)
         .single()
 
-      isAdmin = profile?.role === 'admin'
+      const profileData = profile as Pick<Profile, 'role'> | null
+      isAdmin = profileData?.role === 'admin'
     } else {
       // Se não conseguir autenticar via cookies, tentar via header
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
@@ -47,7 +51,8 @@ async function checkAdmin(request: NextRequest) {
             .eq('id', tokenUser.id)
             .single()
 
-          isAdmin = profile?.role === 'admin'
+          const profileDataToken = profile as Pick<Profile, 'role'> | null
+          isAdmin = profileDataToken?.role === 'admin'
         }
       }
     }
@@ -78,13 +83,12 @@ export async function GET(
       .from('cursos')
       .select('*')
       .eq('id', params.id)
-      .single()
     
     if (!isAdmin) {
       query = query.eq('is_active', true)
     }
     
-    const { data, error } = await query
+    const { data, error } = await query.single()
 
     if (error) {
       return NextResponse.json(
@@ -129,17 +133,20 @@ export async function PUT(
 
     const body: UpdateCursoInput = await request.json()
     
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+    }
+    if (body.nome !== undefined) updateData.nome = body.nome
+    if (body.descricao !== undefined) updateData.descricao = body.descricao
+    if (body.imagem_url !== undefined) updateData.imagem_url = body.imagem_url
+    if (body.ordem !== undefined) updateData.ordem = body.ordem
+    if (body.is_active !== undefined) updateData.is_active = body.is_active
+    
     const adminClient = createAdminClient()
     
-    const { data, error } = await adminClient
-      .from('cursos')
-      .update({
-        nome: body.nome,
-        descricao: body.descricao,
-        imagem_url: body.imagem_url,
-        ordem: body.ordem,
-        is_active: body.is_active
-      })
+    const { data, error } = await (adminClient
+      .from('cursos') as any)
+      .update(updateData)
       .eq('id', params.id)
       .select()
       .single()

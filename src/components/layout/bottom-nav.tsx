@@ -10,14 +10,12 @@ import {
   FolderTree,
   Users,
   Settings,
-  Mic,
 } from "lucide-react"
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/library", label: "Biblioteca", icon: BookOpen },
   { href: "/favorites", label: "Favoritos", icon: Heart },
-  { href: "/voices", label: "Voz IA", icon: Mic },
   { href: "/categories", label: "Categorias", icon: FolderTree },
   { href: "/account", label: "Conta", icon: Settings },
 ]

@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/auth/isAuthenticated"
 
 // GET - Buscar listas do usuário
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { user, error: authError } = await getAuthenticatedUser(request)
 
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
 }
 
 // POST - Criar nova lista
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { user, error: authError } = await getAuthenticatedUser(request)
 
@@ -242,8 +242,9 @@ export async function POST(request: Request) {
         console.warn('[POST /api/produtividade/tarefas/listas] Erro ao buscar ordem:', orderError.message)
         ordem = 0
       } else {
-        ordem = existingLists && existingLists.length > 0 
-          ? (existingLists[0].ordem || 0) + 1 
+        const existingListsData = (existingLists as any[]) || []
+        ordem = existingListsData.length > 0 
+          ? ((existingListsData[0] as any)?.ordem || 0) + 1 
           : 0
       }
     } catch (orderError: any) {
@@ -252,8 +253,8 @@ export async function POST(request: Request) {
     }
 
     // Inserir a nova lista
-    const { data, error } = await supabase
-      .from('tarefa_listas')
+    const { data, error } = await (supabase
+      .from('tarefa_listas') as any)
       .insert({
         user_id: user.id,
         nome: nome.trim(),
@@ -326,7 +327,7 @@ export async function POST(request: Request) {
 }
 
 // PATCH - Atualizar lista
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
     const { user, error: authError } = await getAuthenticatedUser(request)
 
@@ -404,8 +405,8 @@ export async function PATCH(request: Request) {
     }
 
     // Atualizar a lista (sem .single() primeiro, depois buscar)
-    const { error: updateError } = await supabase
-      .from('tarefa_listas')
+    const { error: updateError } = await (supabase
+      .from('tarefa_listas') as any)
       .update(updates)
       .eq('id', id)
       .eq('user_id', user.id)
@@ -454,7 +455,7 @@ export async function PATCH(request: Request) {
 }
 
 // DELETE - Deletar lista
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
     const { user, error: authError } = await getAuthenticatedUser(request)
 

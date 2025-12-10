@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { CreateCursoInput } from "@/types/cursos"
+import { Database } from "@/types/database"
+
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 async function checkAdmin(request: NextRequest) {
   let isAdmin = false
@@ -23,7 +26,8 @@ async function checkAdmin(request: NextRequest) {
         console.error('⚠️ [Cursos API] Erro ao buscar perfil:', profileError)
       }
 
-      isAdmin = profile?.role === 'admin'
+      const profileData = profile as Pick<Profile, 'role'> | null
+      isAdmin = profileData?.role === 'admin'
     } else {
       // Se não conseguir autenticar via cookies, tentar via header
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
@@ -56,7 +60,8 @@ async function checkAdmin(request: NextRequest) {
             console.error('⚠️ [Cursos API] Erro ao buscar perfil via admin client:', profileError)
           }
 
-          isAdmin = profile?.role === 'admin'
+          const profileDataToken = profile as Pick<Profile, 'role'> | null
+          isAdmin = profileDataToken?.role === 'admin'
         }
       } else {
         console.warn('⚠️ [Cursos API] Nenhum token de autenticação encontrado')
@@ -144,8 +149,8 @@ export async function POST(request: NextRequest) {
     // Usar adminClient para bypassar RLS e garantir que a inserção funcione
     const adminClient = createAdminClient()
     
-    const { data, error } = await adminClient
-      .from('cursos')
+    const { data, error } = await (adminClient
+      .from('cursos') as any)
       .insert({
         nome: body.nome,
         descricao: body.descricao || null,

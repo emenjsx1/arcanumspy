@@ -20,6 +20,10 @@ const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   swcMinify: true,
+  // Garantir que CSS seja tratado corretamente
+  experimental: {
+    optimizeCss: false,
+  },
   
   // Configuração do Webpack simplificada
   webpack: (config, { dev, isServer }) => {

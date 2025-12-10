@@ -41,6 +41,7 @@ export async function GET(
     // Buscar respostas (threads) para cada comentário
     const commentsWithReplies = await Promise.all(
       (comments || []).map(async (comment) => {
+        const commentData = comment as { id: string; [key: string]: any }
         const { data: replies } = await supabase
           .from('community_post_comments')
           .select(`
@@ -51,11 +52,11 @@ export async function GET(
               avatar_url
             )
           `)
-          .eq('parent_comment_id', comment.id)
+          .eq('parent_comment_id', commentData.id)
           .order('created_at', { ascending: true })
 
         return {
-          ...comment,
+          ...commentData,
           replies: replies || []
         }
       })
@@ -99,8 +100,8 @@ export async function POST(
       )
     }
 
-    const { data: comment, error } = await supabase
-      .from('community_post_comments')
+    const { data: comment, error } = await (supabase
+      .from('community_post_comments') as any)
       .insert({
         post_id: params.id,
         user_id: user.id,

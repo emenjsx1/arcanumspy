@@ -236,11 +236,12 @@ export async function POST(request: NextRequest) {
     if (cachedAudio && !cacheError) {
       // Retornar áudio do cache
       // Áudio encontrado no cache
+      const cachedAudioTyped = cachedAudio as { id?: string; audio_url?: string; [key: string]: any }
       return NextResponse.json({
         success: true,
-        audioUrl: cachedAudio.audio_url,
+        audioUrl: cachedAudioTyped.audio_url,
         cached: true,
-        generationId: cachedAudio.id,
+        generationId: cachedAudioTyped.id,
       })
     }
 
@@ -592,7 +593,7 @@ export async function POST(request: NextRequest) {
           text: text,
           text_hash: textHash,
           audio_url: audioUrl,
-        })
+        } as any)
         .select()
         .single()
 

@@ -40,13 +40,14 @@ export async function GET(request: Request) {
       })
     }
 
+    const settingsData = data as { focus_minutes?: number; short_break_minutes?: number; long_break_minutes?: number; pomodoros_until_long_break?: number; [key: string]: any }
     return NextResponse.json({
       success: true,
       settings: {
-        focus_minutes: data.focus_minutes,
-        short_break_minutes: data.short_break_minutes,
-        long_break_minutes: data.long_break_minutes,
-        pomodoros_until_long_break: data.pomodoros_until_long_break,
+        focus_minutes: settingsData.focus_minutes,
+        short_break_minutes: settingsData.short_break_minutes,
+        long_break_minutes: settingsData.long_break_minutes,
+        pomodoros_until_long_break: settingsData.pomodoros_until_long_break,
       }
     })
   } catch (error: any) {
@@ -84,8 +85,8 @@ export async function POST(request: Request) {
 
     if (existing) {
       // Atualizar
-      const result = await supabase
-        .from('pomodoro_settings')
+      const result = await (supabase
+        .from('pomodoro_settings') as any)
         .update({
           focus_minutes: focus_minutes || 25,
           short_break_minutes: short_break_minutes || 5,
@@ -99,8 +100,8 @@ export async function POST(request: Request) {
       error = result.error
     } else {
       // Criar
-      const result = await supabase
-        .from('pomodoro_settings')
+      const result = await (supabase
+        .from('pomodoro_settings') as any)
         .insert({
           user_id: user.id,
           focus_minutes: focus_minutes || 25,

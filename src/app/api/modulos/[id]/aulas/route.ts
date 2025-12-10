@@ -19,7 +19,7 @@ async function checkAdmin(request: NextRequest) {
         .eq('id', userFromCookies.id)
         .single()
 
-      isAdmin = profile?.role === 'admin'
+      isAdmin = (profile as any)?.role === 'admin'
     } else {
       // Se não conseguir autenticar via cookies, tentar via header
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
@@ -47,7 +47,8 @@ async function checkAdmin(request: NextRequest) {
             .eq('id', tokenUser.id)
             .single()
 
-          isAdmin = profile?.role === 'admin'
+          const profileData = profile as { role?: string } | null
+          isAdmin = profileData?.role === 'admin'
         }
       }
     }
@@ -104,17 +105,16 @@ export async function GET(
     const { isAdmin } = await checkAdmin(request)
     
     // Verificar se o módulo existe e está ativo (se não for admin)
-    const moduloQuery = supabase
+    let moduloQuery = supabase
       .from('modulos')
       .select('id, is_active, curso_id')
       .eq('id', params.id)
-      .single()
     
     if (!isAdmin) {
-      moduloQuery.eq('is_active', true)
+      moduloQuery = moduloQuery.eq('is_active', true)
     }
     
-    const { data: modulo, error: moduloError } = await moduloQuery
+    const { data: modulo, error: moduloError } = await moduloQuery.single()
     
     if (moduloError || !modulo) {
       return NextResponse.json(
@@ -128,7 +128,7 @@ export async function GET(
       const { data: curso } = await supabase
         .from('cursos')
         .select('id, is_active')
-        .eq('id', modulo.curso_id)
+        .eq('id', (modulo as any).curso_id)
         .eq('is_active', true)
         .single()
       
@@ -224,8 +224,8 @@ export async function POST(
       )
     }
 
-    const { data, error } = await adminClient
-      .from('aulas')
+    const { data, error } = await (adminClient
+      .from('aulas') as any)
       .insert({
         modulo_id: params.id,
         titulo: body.titulo,

@@ -14,11 +14,8 @@ import {
   Mic, 
   Play, 
   Pause, 
-  Download, 
-  Trash2, 
   Loader2,
   Volume2,
-  Sparkles,
   FileAudio,
   History,
   Check,
@@ -27,8 +24,6 @@ import {
   CheckCircle2
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { VoiceClone, NarrationHistory } from "@/lib/types"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dropzone } from "@/components/ui/dropzone"
 import { supabase } from "@/lib/supabase/client"
@@ -57,24 +52,6 @@ export default function VoicesPage() {
   const [generatingTest, setGeneratingTest] = useState(false)
   const testAudioRef = useRef<HTMLAudioElement>(null)
   const [activeTab, setActiveTab] = useState("upload")
-  
-  // Estados para handleGenerate (função não usada, mas mantida para compatibilidade)
-  const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
-  const [text, setText] = useState("")
-  const [generating, setGenerating] = useState(false)
-  const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null)
-  const [voices, setVoices] = useState<VoiceClone[]>([])
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [audioPlaying, setAudioPlaying] = useState(false)
-  const [selectedModel, setSelectedModel] = useState<'s1' | 'speech-1.5'>('s1')
-  const [loadingHistory, setLoadingHistory] = useState(false)
-  const [narrationHistory, setNarrationHistory] = useState<NarrationHistory[]>([])
-  const [narrations, setNarrations] = useState<NarrationHistory[]>([])
-  const [speed, setSpeed] = useState<number>(1.0)
-  const [volume, setVolume] = useState<number>(0)
-  const [temperature, setTemperature] = useState<number>(0.9)
-  const [topP, setTopP] = useState<number>(0.9)
-  const [language, setLanguage] = useState<string>('auto')
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -87,8 +64,6 @@ export default function VoicesPage() {
       })
     }
   }, [isAuthenticated])
-
-  // Funções de carregamento de vozes removidas - não são mais necessárias nesta página
 
   // Função auxiliar para obter duração do áudio
   const getAudioDuration = (file: File): Promise<number> => {
@@ -483,279 +458,6 @@ export default function VoicesPage() {
     }
   }
 
-  const handleGenerate = async () => {
-    // 🔐 VERIFICAR AUTENTICAÇÃO PRIMEIRO (antes de qualquer coisa)
-    if (!isAuthenticated || !user) {
-      toast({
-        title: "Não autenticado",
-        description: "Faça login para gerar vozes",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!selectedVoice || !text.trim()) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Selecione uma voz e digite um texto",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setGenerating(true)
-      setGeneratedAudioUrl(null)
-
-      const voiceClone = voices.find(v => v.id === selectedVoice)
-      if (!voiceClone) return
-
-      // 🔐 VERIFICAR SESSÃO ANTES DE FAZER A REQUISIÇÃO
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError || !session) {
-        toast({
-          title: "Sessão expirada",
-          description: "Faça login novamente para continuar",
-          variant: "destructive",
-        })
-        setGenerating(false)
-        return
-      }
-      
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      }
-      
-      // Adicionar token no header (obrigatório)
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      } else {
-        toast({
-          title: "Erro de autenticação",
-          description: "Token de acesso não encontrado. Faça login novamente.",
-          variant: "destructive",
-        })
-        setGenerating(false)
-        return
-      }
-
-      const response = await fetch('/api/voices/generate-tts', {
-        method: 'POST',
-        credentials: 'include', // Incluir cookies na requisição
-        headers,
-        body: JSON.stringify({
-          voiceId: voiceClone.voiceId,
-          voiceCloneId: voiceClone.id,
-          text: text.trim(),
-          model: selectedModel, // Modelo selecionado (s1 ou speech-1.5)
-          speed: speed, // Velocidade: 0.7 a 1.3 (padrão: 1.0)
-          volume: volume, // Volume: -10 a 10 (padrão: 0)
-          temperature: temperature, // Temperatura: 0.0 a 1.0 (padrão: 0.9)
-          topP: topP, // Top-p: 0.0 a 1.0 (padrão: 0.9)
-          language: language === 'auto' ? undefined : language, // Idioma: 'auto' = detectar do áudio (preserva sotaque moçambicano)
-          format: 'mp3',
-        }),
-      })
-
-      if (response.status === 401) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Não autenticado")
-      }
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        
-        // Mostrar erro detalhado
-        const errorMessage = errorData.error || errorData.message || `Erro ${response.status}`
-        const errorDetails = errorData.details || errorData.hint || ""
-        const errorCode = errorData.errorCode || ""
-        
-        // Mensagem completa com detalhes
-        const fullErrorMessage = errorDetails 
-          ? `${errorMessage}\n\n${errorDetails}`
-          : errorMessage
-        
-        console.error('❌ Erro ao gerar TTS:', {
-          status: response.status,
-          error: errorMessage,
-          details: errorDetails,
-          errorCode,
-          fullError: errorData
-        })
-        
-        toast({
-          title: "Erro ao gerar narração",
-          description: fullErrorMessage,
-          variant: "destructive",
-        })
-        
-        throw new Error(fullErrorMessage)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        setGeneratedAudioUrl(data.audioUrl)
-        toast({
-          title: "Sucesso!",
-          description: data.cached 
-            ? "Áudio recuperado do cache" 
-            : "Narração gerada com sucesso!",
-        })
-        
-        // Recarregar histórico após gerar narração
-        await loadHistory()
-      } else {
-        const errorMessage = data.error || data.message || "Erro ao gerar narração"
-        const errorDetails = data.details || data.hint || ""
-        
-        toast({
-          title: "Erro",
-          description: errorDetails ? `${errorMessage}\n\n${errorDetails}` : errorMessage,
-          variant: "destructive",
-        })
-      }
-    } catch (error: any) {
-      console.error('❌ Erro ao gerar TTS:', error)
-      
-      // Se o erro já foi tratado acima, não mostrar novamente
-      if (error.message && error.message !== "Erro ao gerar narração") {
-        return
-      }
-      
-      toast({
-        title: "Erro",
-        description: error.message || error.toString() || "Erro ao gerar narração. Verifique o console para mais detalhes.",
-        variant: "destructive",
-      })
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  const handleDelete = async (voiceId: string) => {
-    if (!confirm('Tem certeza que deseja deletar esta voz?')) {
-      return
-    }
-
-    try {
-      // Obter token para enviar no header
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      const headers: HeadersInit = {}
-      
-      // Adicionar token no header se disponível
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
-
-      const response = await fetch(`/api/voices/${voiceId}`, {
-        method: 'DELETE',
-        credentials: 'include', // Incluir cookies na requisição
-        headers,
-      })
-
-      if (response.status === 401) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Não autenticado")
-      }
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Erro ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Sucesso!",
-          description: "Voz deletada com sucesso",
-        })
-        // Recarregar vozes - redirecionar para página de listagem
-        router.push('/voices/list')
-      } else {
-        toast({
-          title: "Erro",
-          description: data.error || "Erro ao deletar voz",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error('Erro ao deletar voz:', error)
-      toast({
-        title: "Erro",
-        description: "Erro ao deletar voz",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const toggleAudio = () => {
-    if (audioRef.current) {
-      if (audioPlaying) {
-        audioRef.current.pause()
-      } else {
-        audioRef.current.play()
-      }
-      setAudioPlaying(!audioPlaying)
-    }
-  }
-
-  const handleDownload = () => {
-    if (generatedAudioUrl && audioRef.current) {
-      const a = document.createElement('a')
-      a.href = generatedAudioUrl
-      a.download = `narracao-${Date.now()}.mp3`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-    }
-  }
-
-  // Carregar histórico de narrações
-  const loadHistory = async () => {
-    try {
-      setLoadingHistory(true)
-      
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      }
-      
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
-
-      const response = await fetch('/api/voices/history', {
-        method: 'GET',
-        credentials: 'include',
-        headers,
-      })
-
-      if (!response.ok) {
-        console.error('❌ Erro ao buscar histórico:', response.status, response.statusText)
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Detalhes do erro:', errorData)
-        return
-      }
-
-      const data = await response.json()
-      
-      if (data.success) {
-        setNarrations(data.narrations || [])
-      } else {
-        console.error('❌ Resposta sem sucesso:', data)
-      }
-    } catch (error) {
-      console.error('❌ Erro ao carregar histórico:', error)
-    } finally {
-      setLoadingHistory(false)
-    }
-  }
-
   // Gerar narração de teste durante clone
   const generateTestNarration = async (voiceClone: any, testText: string) => {
     // 🔐 VERIFICAR AUTENTICAÇÃO PRIMEIRO
@@ -940,48 +642,6 @@ export default function VoicesPage() {
         testAudioRef.current.play()
       }
       setTestAudioPlaying(!testAudioPlaying)
-    }
-  }
-
-  // Deletar narração do histórico
-  const handleDeleteNarration = async (narrationId: string) => {
-    if (!confirm('Tem certeza que deseja deletar esta narração do histórico?')) {
-      return
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      }
-      
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
-
-      const response = await fetch(`/api/voices/history/${narrationId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers,
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Narração removida",
-          description: "A narração foi removida do histórico",
-        })
-        await loadHistory()
-      } else {
-        throw new Error('Erro ao deletar narração')
-      }
-    } catch (error) {
-      console.error('Erro ao deletar narração:', error)
-      toast({
-        title: "Erro",
-        description: "Erro ao deletar narração",
-        variant: "destructive",
-      })
     }
   }
 

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       email: user.email || null,
       role: user.role,
       created_at: user.created_at,
-      subscription: user.subscriptions?.[0] || null,
+      subscription: user.subscription || null,
     }))
 
     return NextResponse.json({ users: mappedUsers })

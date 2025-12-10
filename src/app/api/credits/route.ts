@@ -66,8 +66,8 @@ export async function GET(request: NextRequest) {
     if (balanceError) {
       // Se não existe, criar registro usando adminClient
       if (balanceError.code === 'PGRST116') {
-        const { data: newRecord, error: insertError } = await adminClient
-          .from('user_credits')
+        const { data: newRecord, error: insertError } = await (adminClient
+          .from('user_credits') as any)
           .insert({
             user_id: user.id,
             balance: 0,
@@ -258,12 +258,20 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    const balanceDataTyped = balanceData as {
+      balance?: number;
+      total_loaded?: number;
+      total_consumed?: number;
+      is_blocked?: boolean;
+      low_balance_threshold?: number;
+    } | null
+
     const balance = {
-      balance: balanceData?.balance || 0,
-      total_loaded: balanceData?.total_loaded || 0,
-      total_consumed: balanceData?.total_consumed || 0,
-      is_blocked: balanceData?.is_blocked || false,
-      low_balance_threshold: balanceData?.low_balance_threshold || 10
+      balance: balanceDataTyped?.balance || 0,
+      total_loaded: balanceDataTyped?.total_loaded || 0,
+      total_consumed: balanceDataTyped?.total_consumed || 0,
+      is_blocked: balanceDataTyped?.is_blocked || false,
+      low_balance_threshold: balanceDataTyped?.low_balance_threshold || 10
     }
 
     return NextResponse.json({

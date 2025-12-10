@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { Database } from "@/types/database"
 
 type SubscriptionUpdate = Database['public']['Tables']['subscriptions']['Update']
+type Subscription = Database['public']['Tables']['subscriptions']['Row']
 
 export async function PUT(
   request: Request,
@@ -84,14 +85,15 @@ export async function PUT(
       subscription = data
     } else {
       // Create new subscription
-      const { data, error } = await adminClient
-        .from('subscriptions')
-        .insert({
-          user_id: targetUserId,
-          plan_id,
-          status: 'active',
-          current_period_end: currentPeriodEnd.toISOString(),
-        })
+      const insertData: any = {
+        user_id: targetUserId,
+        plan_id,
+        status: 'active',
+        current_period_end: currentPeriodEnd.toISOString(),
+      }
+      const { data, error } = await (adminClient
+        .from('subscriptions') as any)
+        .insert(insertData)
         .select(`
           *,
           plan:plans(*)

@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     let { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -45,8 +45,8 @@ export async function POST(request: Request) {
     }
 
     // Salvar histórico
-    const { data, error } = await supabase
-      .from('mascaramentos_criativo')
+    const { data, error } = await (supabase
+      .from('mascaramentos_criativo') as any)
       .insert({
         user_id: user.id,
         nome_arquivo: criativoFile.name,

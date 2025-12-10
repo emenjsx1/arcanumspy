@@ -259,6 +259,6 @@ export function useTranslation() {
 
 // Hook simplificado para moeda
 export function useCurrency() {
-  const { currency, currencySymbol, formatPrice, convertPrice } = useLocale()
-  return { currency, currencySymbol, formatPrice, convertPrice }
+  const { currency, currencySymbol, setCurrency, formatPrice, convertPrice } = useLocale()
+  return { currency, currencySymbol, setCurrency, formatPrice, convertPrice }
 }

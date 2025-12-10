@@ -54,8 +54,8 @@ export async function PATCH(
     }
 
     // Atualizar item
-    const { data, error } = await supabase
-      .from('biblioteca_itens')
+    const { data, error } = await (supabase
+      .from('biblioteca_itens') as any)
       .update({
         ...body,
         updated_at: new Date().toISOString()

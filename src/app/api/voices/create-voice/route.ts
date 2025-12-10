@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     // Tentar autenticar via cookies (método padrão)
     const getUserResult = await supabase.auth.getUser()
     let user = getUserResult.data?.user || null
-    let authError = getUserResult.error
+    let authError: { message?: string } | null = getUserResult.error
     
     if (user) {
     } else {
@@ -49,11 +49,11 @@ export async function POST(request: NextRequest) {
             if (userData && userData.id) {
               user = userData
             } else {
-              authError = { message: 'Token inválido: resposta vazia' }
+              authError = { message: 'Token inválido: resposta vazia' } as any
             }
           } else {
             const errorText = await validateResponse.text()
-            authError = { message: `Token inválido: ${validateResponse.status}` }
+            authError = { message: `Token inválido: ${validateResponse.status}` } as any
           }
         } catch (tokenError: any) {
           authError = tokenError
@@ -491,10 +491,9 @@ export async function POST(request: NextRequest) {
         }
         
         // ✅ SUCESSO! voiceClone foi criado com sucesso
-        if (voiceClone) {
-          savedVoiceClone = voiceClone
-        } else if (voiceCloneRetry) {
-          savedVoiceClone = voiceCloneRetry
+        const voiceCloneData = voiceClone as any
+        if (voiceCloneData) {
+          savedVoiceClone = voiceCloneData
         } else {
           // Fallback: se voiceClone não foi definido (não deveria acontecer)
           console.error('❌ voiceClone não foi definido após insert bem-sucedido')
@@ -529,7 +528,7 @@ export async function POST(request: NextRequest) {
         const debitResult = await debitCredits(
           userId,
           creditsRequired,
-          'voice_creation', // Nova categoria para criação de voz
+          'audio_generation' as any, // Usando audio_generation como categoria para criação de voz
           `Criação de voz clonada - ${savedVoiceClone.name || 'Voz sem nome'}`,
           {
             voice_clone_id: savedVoiceClone.id,
@@ -543,19 +542,19 @@ export async function POST(request: NextRequest) {
           
           // Registrar atividade em user_activities
           try {
-            await adminClient
-              .from('user_activities')
+            await (adminClient
+              .from('user_activities') as any)
               .insert({
                 user_id: userId,
                 type: 'VOICE_CREATE',
                 credits_used: creditsRequired,
                 metadata: {
-                  voice_clone_id: savedVoiceClone.id,
-                  voice_id: savedVoiceClone.voice_id,
+                  voice_clone_id: (savedVoiceClone as any)?.id,
+                  voice_id: (savedVoiceClone as any)?.voice_id,
                   action: 'voice_created',
                 },
               })
-              .catch((err) => {
+              .catch((err: any) => {
                 console.warn('⚠️ Erro ao registrar atividade (não crítico):', err.message)
               })
           } catch (activityError) {

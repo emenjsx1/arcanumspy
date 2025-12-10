@@ -147,10 +147,11 @@ export async function POST(
       .limit(1)
       .single()
 
-    const novaOrdem = lastItem?.ordem ? lastItem.ordem + 1 : 0
+    const lastItemData = lastItem as { ordem?: number } | null
+    const novaOrdem = lastItemData?.ordem ? lastItemData.ordem + 1 : 0
 
-    const { data, error } = await supabase
-      .from('biblioteca_itens')
+    const { data, error } = await (supabase
+      .from('biblioteca_itens') as any)
       .insert({
         pasta_id: params.pastaId,
         user_id: user.id,

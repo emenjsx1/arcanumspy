@@ -156,34 +156,4 @@ export interface LandingContent {
   }
 }
 
-export interface VoiceClone {
-  id: string
-  userId: string
-  name: string
-  voiceId: string
-  audioUrl?: string
-  description?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface VoiceAudioGeneration {
-  id: string
-  userId: string
-  voiceCloneId: string
-  voiceName?: string // Nome da voz usada
-  text: string
-  audioUrl: string
-  textHash: string
-  createdAt: string
-}
-
-export interface NarrationHistory {
-  id: string
-  text: string
-  audioUrl: string
-  voiceCloneId: string
-  voiceName: string
-  createdAt: string
-}
 

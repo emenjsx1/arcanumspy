@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
           .single()
 
         const profile = profileRaw as { role?: string } | null
-        isAdmin = profile?.role === 'admin'
+        isAdmin = (profile as any)?.role === 'admin'
       } else {
         // Se não conseguir autenticar via cookies, tentar via header
         const authHeader = request.headers.get('authorization')
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
                 .single()
 
               const profile = profileRaw as { role?: string } | null
-              isAdmin = profile?.role === 'admin'
+              isAdmin = (profile as any)?.role === 'admin'
             }
           } catch (tokenError) {
             console.warn('⚠️ [Admin Stats] Erro ao validar token:', tokenError)

@@ -37,15 +37,17 @@ export async function GET(
       )
     }
 
+    const postData = post as { views_count?: number; [key: string]: any }
+
     // Incrementar contador de visualizações
-    await supabase
-      .from('community_posts')
-      .update({ views_count: (post.views_count || 0) + 1 })
+    await (supabase
+      .from('community_posts') as any)
+      .update({ views_count: (postData.views_count || 0) + 1 })
       .eq('id', params.id)
 
     return NextResponse.json({
       success: true,
-      post: { ...post, views_count: (post.views_count || 0) + 1 }
+      post: { ...postData, views_count: (postData.views_count || 0) + 1 }
     })
   } catch (error: any) {
     return NextResponse.json(
@@ -88,7 +90,8 @@ export async function PATCH(
       )
     }
 
-    if (existingPost.user_id !== user.id) {
+    const existingPostData = existingPost as { user_id: string }
+    if (existingPostData.user_id !== user.id) {
       return NextResponse.json(
         { error: "Você não tem permissão para editar este post" },
         { status: 403 }
@@ -100,8 +103,8 @@ export async function PATCH(
     if (content !== undefined) updates.content = content
     if (category !== undefined) updates.category = category
 
-    const { data: post, error } = await supabase
-      .from('community_posts')
+    const { data: post, error } = await (supabase
+      .from('community_posts') as any)
       .update(updates)
       .eq('id', params.id)
       .select(`
@@ -163,7 +166,8 @@ export async function DELETE(
       )
     }
 
-    if (existingPost.user_id !== user.id) {
+    const existingPostDataDelete = existingPost as { user_id: string }
+    if (existingPostDataDelete.user_id !== user.id) {
       return NextResponse.json(
         { error: "Você não tem permissão para deletar este post" },
         { status: 403 }

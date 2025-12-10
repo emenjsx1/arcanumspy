@@ -61,8 +61,8 @@ export async function POST(request: Request) {
     }
 
     // Salvar histórico
-    const { data, error } = await supabase
-      .from('validacoes_criativo')
+    const { data, error } = await (supabase
+      .from('validacoes_criativo') as any)
       .insert({
         user_id: user.id,
         nome_arquivo: criativoFile.name,

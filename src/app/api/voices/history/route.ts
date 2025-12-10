@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        narrations: narrations?.map(n => ({
+        narrations: (narrations as any[])?.map((n: any) => ({
           id: n.id,
           text: n.text,
           audioUrl: n.audio_url,

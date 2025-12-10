@@ -48,10 +48,11 @@ export async function POST(request: NextRequest) {
 
     if (existingReaction) {
       // Remover reação existente (toggle)
+      const existingReactionData = existingReaction as { id: string; [key: string]: any }
       const { error: deleteError } = await supabase
         .from('community_post_reactions')
         .delete()
-        .eq('id', existingReaction.id)
+        .eq('id', existingReactionData.id)
 
       if (deleteError) {
         return NextResponse.json(
@@ -67,8 +68,8 @@ export async function POST(request: NextRequest) {
       })
     } else {
       // Criar nova reação
-      const { data: reaction, error: insertError } = await supabase
-        .from('community_post_reactions')
+      const { data: reaction, error: insertError } = await (supabase
+        .from('community_post_reactions') as any)
         .insert({
           post_id: post_id || null,
           comment_id: comment_id || null,
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
 
     if (postId) {
       query = query.eq('post_id', postId).is('comment_id', null)
-    } else {
+    } else if (commentId) {
       query = query.eq('comment_id', commentId).is('post_id', null)
     }
 
@@ -144,10 +145,11 @@ export async function GET(request: NextRequest) {
 
     // Agrupar por tipo de reação
     const grouped = (reactions || []).reduce((acc: any, reaction) => {
-      if (!acc[reaction.reaction_type]) {
-        acc[reaction.reaction_type] = []
+      const reactionData = reaction as { reaction_type: string; [key: string]: any }
+      if (!acc[reactionData.reaction_type]) {
+        acc[reactionData.reaction_type] = []
       }
-      acc[reaction.reaction_type].push(reaction)
+      acc[reactionData.reaction_type].push(reactionData)
       return acc
     }, {})
 

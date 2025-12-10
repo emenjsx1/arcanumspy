@@ -62,10 +62,11 @@ export async function POST(request: Request) {
     // Enviar email de confirmação (não bloqueia se falhar)
     if (ticket && profile) {
       try {
-        const userEmail = profile.email || user.email
+        const profileData = profile as { email?: string | null; name?: string | null; [key: string]: any } | null
+        const userEmail = profileData?.email || user.email
         if (userEmail) {
           await sendSupportEmail({
-            name: profile.name || user.email?.split('@')[0] || 'Usuário',
+            name: profileData?.name || user.email?.split('@')[0] || 'Usuário',
             userEmail: userEmail,
             ticketId: ticket.id,
             subject: ticket.subject,

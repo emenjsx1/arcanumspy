@@ -106,8 +106,8 @@ Esta é uma oportunidade única de complementar sua compra com um produto que va
 
     // Salvar no banco se a tabela existir
     try {
-      const { data, error } = await supabase
-        .from('upsells_gerados')
+      const { data, error } = await (supabase
+        .from('upsells_gerados') as any)
         .insert({
           user_id: user.id,
           produto_principal,

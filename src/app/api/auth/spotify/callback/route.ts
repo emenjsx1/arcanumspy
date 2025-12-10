@@ -92,8 +92,8 @@ export async function GET(request: Request) {
 
     if (existingToken) {
       // Atualizar token existente
-      const { error: updateError } = await supabase
-        .from('spotify_tokens')
+      const { error: updateError } = await (supabase
+        .from('spotify_tokens') as any)
         .update({
           access_token,
           refresh_token,
@@ -109,8 +109,8 @@ export async function GET(request: Request) {
       }
     } else {
       // Inserir novo token
-      const { error: insertError } = await supabase
-        .from('spotify_tokens')
+      const { error: insertError } = await (supabase
+        .from('spotify_tokens') as any)
         .insert({
           user_id: user.id,
           access_token,

@@ -40,6 +40,8 @@ export async function POST(request: Request) {
       )
     }
 
+    const tokenDataTyped = tokenData as { refresh_token: string }
+
     // Trocar refresh_token por novo access_token
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
       },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
-        refresh_token: tokenData.refresh_token,
+        refresh_token: tokenDataTyped.refresh_token,
       }),
     })
 
@@ -93,8 +95,8 @@ export async function POST(request: Request) {
       updateData.scope = scope
     }
 
-    const { error: updateError } = await supabase
-      .from('spotify_tokens')
+    const { error: updateError } = await (supabase
+      .from('spotify_tokens') as any)
       .update(updateData)
       .eq('user_id', user.id)
 

@@ -2,7 +2,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Upload, FileAudio } from "lucide-react"
 
-interface DropzoneProps extends React.HTMLAttributes<HTMLDivElement> {
+interface DropzoneProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onDrop'> {
   onDrop?: (files: File[]) => void
   accept?: string
   multiple?: boolean

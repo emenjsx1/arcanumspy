@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { Modulo } from "@/types/cursos"
 
 // GET - Buscar todo o progresso do usuário
 export async function GET(request: NextRequest) {
@@ -72,7 +73,8 @@ export async function GET(request: NextRequest) {
         .select('id, curso_id')
         .eq('curso_id', cursoId)
       
-      const moduloIds = modulos?.map(m => m.id) || []
+      const modulosData = modulos as Pick<Modulo, 'id' | 'curso_id'>[] | null
+      const moduloIds = modulosData?.map(m => m.id) || []
       filteredProgress = filteredProgress.filter((p: any) => 
         moduloIds.includes(p.aulas?.modulo_id)
       )

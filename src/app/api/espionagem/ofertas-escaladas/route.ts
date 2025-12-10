@@ -100,8 +100,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Filtro por país (se fornecido diretamente)
-    if (searchParams.get('country')) {
-      query = query.eq('country', searchParams.get('country'))
+    const country = searchParams.get('country')
+    if (country) {
+      query = query.eq('country', country)
     }
 
     // language column não existe na tabela offers - filtro removido

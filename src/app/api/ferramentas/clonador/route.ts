@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
 
     // 4. Salvar histórico no banco (se a tabela existir)
     try {
-      const { error: dbError } = await supabase
-        .from('clones')
+      const { error: dbError } = await (supabase
+        .from('clones') as any)
         .insert({
           user_id: user.id,
           url_original: url,
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     let { data: { user }, error: authError } = await supabase.auth.getUser()

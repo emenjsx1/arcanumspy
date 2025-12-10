@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
     ]
 
     // Salvar histórico da verificação (formato antigo para compatibilidade)
-    const { data: historico, error: historicoError } = await supabase
-      .from('espiao_dominios_historico')
+    const { data: historico, error: historicoError } = await (supabase
+      .from('espiao_dominios_historico') as any)
       .insert({
         user_id: user.id,
         dominio: baseDomain,

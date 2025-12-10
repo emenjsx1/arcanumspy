@@ -364,8 +364,8 @@ export async function POST(request: NextRequest) {
 
     // Salvar histórico no banco (opcional)
     try {
-      await supabase
-        .from('otimizacoes_campanha')
+      await (supabase
+        .from('otimizacoes_campanha') as any)
         .insert({
           user_id: user.id,
           url_campanha: `Análise de campanha - ${new Date().toISOString()}`,

@@ -118,8 +118,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data, error } = await supabase
-      .from('metas')
+    const { data, error } = await (supabase
+      .from('metas') as any)
       .insert({
         user_id: user.id,
         titulo,
@@ -220,8 +220,8 @@ export async function PATCH(request: Request) {
     }
     if (valor_atual !== undefined) updates.valor_atual = valor_atual
 
-    const { data, error } = await supabase
-      .from('metas')
+    const { data, error } = await (supabase
+      .from('metas') as any)
       .update(updates)
       .eq('id', id)
       .eq('user_id', user.id)

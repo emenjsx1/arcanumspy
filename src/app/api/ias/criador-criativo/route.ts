@@ -119,8 +119,8 @@ export async function POST(request: NextRequest) {
     // Salvar no banco
     let savedData = null
     try {
-      const { data, error } = await supabase
-        .from('criativos_gerados')
+      const { data, error } = await (supabase
+        .from('criativos_gerados') as any)
         .insert({
           user_id: user.id,
           descricao,
@@ -187,8 +187,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase
-      .from('criativos_gerados')
+    const { data, error } = await (supabase
+      .from('criativos_gerados') as any)
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })

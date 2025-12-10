@@ -330,8 +330,8 @@ export async function POST(request: NextRequest) {
     let savedId: string | null = null
     
     try {
-      const { data: saved, error: saveError } = await supabaseServer
-        .from('copy_generations')
+      const { data: saved, error: saveError } = await (supabaseServer
+        .from('copy_generations') as any)
         .insert({
           user_id: user.id,
           nicho: body.nicho,
@@ -393,8 +393,8 @@ export async function POST(request: NextRequest) {
     // 4. ATUALIZAR banco com resultado
     if (savedId) {
       try {
-        await supabaseServer
-          .from('copy_generations')
+        await (supabaseServer
+          .from('copy_generations') as any)
           .update({ resultado: resultado })
           .eq('id', savedId)
         
@@ -404,8 +404,8 @@ export async function POST(request: NextRequest) {
     } else {
       // Se não salvou antes, tentar salvar agora com resultado
       try {
-        const { data: saved, error: saveError } = await supabaseServer
-          .from('copy_generations')
+        const { data: saved, error: saveError } = await (supabaseServer
+          .from('copy_generations') as any)
           .insert({
             user_id: user.id,
             nicho: body.nicho,

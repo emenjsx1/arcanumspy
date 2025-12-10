@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { Aula } from "@/types/cursos"
 
 // GET - Buscar progresso do usuário na aula
 export async function GET(
@@ -129,24 +130,28 @@ export async function POST(
       )
     }
 
+    const aulaData = aula as Pick<Aula, 'id' | 'modulo_id' | 'ordem'>
+
     // Verificar se a aula anterior foi concluída (se não for a primeira)
-    if (aula.ordem > 1) {
+    if (aulaData.ordem > 1) {
       const { data: aulaAnterior } = await supabase
         .from('aulas')
         .select('id')
-        .eq('modulo_id', aula.modulo_id)
-        .eq('ordem', aula.ordem - 1)
+        .eq('modulo_id', aulaData.modulo_id)
+        .eq('ordem', aulaData.ordem - 1)
         .single()
 
       if (aulaAnterior) {
+        const aulaAnteriorData = aulaAnterior as { id: string }
         const { data: progressoAnterior } = await supabase
           .from('user_aula_progress')
           .select('concluida')
           .eq('user_id', user.id)
-          .eq('aula_id', aulaAnterior.id)
+          .eq('aula_id', aulaAnteriorData.id)
           .single()
 
-        if (!progressoAnterior?.concluida) {
+        const progressoAnteriorData = progressoAnterior as { concluida: boolean } | null
+        if (!progressoAnteriorData?.concluida) {
           return NextResponse.json(
             { error: "Complete a aula anterior primeiro" },
             { status: 403 }
@@ -190,8 +195,8 @@ export async function POST(
       const { data: proximaAula } = await supabase
         .from('aulas')
         .select('id')
-        .eq('modulo_id', aula.modulo_id)
-        .eq('ordem', aula.ordem + 1)
+        .eq('modulo_id', aulaData.modulo_id)
+        .eq('ordem', aulaData.ordem + 1)
         .eq('is_active', true)
         .single()
 

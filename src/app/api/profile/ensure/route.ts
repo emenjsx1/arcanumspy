@@ -75,11 +75,11 @@ export async function POST(request: Request) {
       // Profile exists, update email and name if needed
       const updates: any = {}
       
-      if (!existingProfile.email && user.email) {
+      if (!(existingProfile as any).email && user.email) {
         updates.email = user.email
       }
       
-      if (!existingProfile.name) {
+      if (!(existingProfile as any).name) {
         updates.name = user.email?.split('@')[0] || 'User'
       }
 
@@ -93,15 +93,15 @@ export async function POST(request: Request) {
       
       // SEMPRE verificar e atualizar role se necessário (mesmo que não haja outros updates)
       if (user.email && adminEmails.includes(user.email.toLowerCase())) {
-        if (existingProfile.role !== 'admin') {
+        if ((existingProfile as any).role !== 'admin') {
           updates.role = 'admin'
         }
       }
 
       if (Object.keys(updates).length > 0) {
         const updateClient = adminClient || supabase
-        const { data: updatedProfile, error: updateError } = await updateClient
-          .from('profiles')
+        const { data: updatedProfile, error: updateError } = await (updateClient
+          .from('profiles') as any)
           .update(updates)
           .eq('id', user.id)
           .select()
@@ -139,8 +139,8 @@ export async function POST(request: Request) {
       ]
       const role = (user.email && adminEmails.includes(user.email.toLowerCase())) ? 'admin' : 'user'
       
-      const { data: newProfile, error: createError } = await createClient
-        .from('profiles')
+      const { data: newProfile, error: createError } = await (createClient
+        .from('profiles') as any)
         .insert({
           id: user.id,
           name: user.email?.split('@')[0] || user.email || 'User',
@@ -167,8 +167,8 @@ export async function POST(request: Request) {
                 'admin@arcanumspy.com'
               ]
               if (user.email && adminEmails.includes(user.email.toLowerCase())) {
-                await supabase
-                  .from('profiles')
+                await (supabase
+                  .from('profiles') as any)
                   .update({ role: 'admin' })
                   .eq('id', user.id)
               }

@@ -34,7 +34,8 @@ export async function POST(request: Request) {
     }
 
     // Verificar se o token expirou
-    const expiresAt = new Date(tokenData.expires_at)
+    const tokenDataTyped = tokenData as { expires_at?: string; access_token?: string; [key: string]: any }
+    const expiresAt = new Date(tokenDataTyped.expires_at || 0)
     const now = new Date()
     if (expiresAt <= now) {
       return NextResponse.json(
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const accessToken = tokenData.access_token
+    const accessToken = tokenDataTyped.access_token
 
     // Preparar requisição baseada na ação
     let spotifyUrl = 'https://api.spotify.com/v1/me/player'

@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       console.log('🔍 [API /offers] Debug - Ofertas acessíveis via RLS:', allOffers?.length || 0)
       if (allOffers && allOffers.length > 0) {
         console.log('✅ [API /offers] Exemplos de ofertas acessíveis:')
-        allOffers.forEach((offer, idx) => {
+        allOffers.forEach((offer: any, idx: number) => {
           console.log(`  ${idx + 1}. ${offer.title} (is_active: ${offer.is_active})`)
         })
       } else {
@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
         if (categoriesError) {
           console.warn('⚠️ [API /offers] Erro ao buscar categorias:', categoriesError.message)
         } else if (categoriesData) {
-          categoriesData.forEach(cat => {
+          (categoriesData as any[]).forEach((cat: any) => {
             categoriesMap[cat.id] = cat
           })
           console.log('✅ [API /offers] Categorias encontradas:', categoriesData.length)
@@ -229,7 +229,7 @@ export async function GET(request: NextRequest) {
           if (nichesError) {
             console.warn('⚠️ [API /offers] Erro ao buscar nichos:', nichesError.message)
           } else if (nichesData) {
-            nichesData.forEach(niche => {
+            (nichesData as any[]).forEach((niche: any) => {
               nichesMap[niche.id] = niche
             })
             console.log('✅ [API /offers] Nichos encontrados:', nichesData.length)
@@ -369,7 +369,7 @@ export async function GET(request: NextRequest) {
             .in('id', categoryIds)
           
           if (categoriesData) {
-            categoriesData.forEach(cat => {
+            categoriesData.forEach((cat: any) => {
               categoriesMap[cat.id] = cat
             })
           }
@@ -389,7 +389,7 @@ export async function GET(request: NextRequest) {
             if (nichesError) {
               console.warn('⚠️ [API /offers] Erro ao buscar nichos:', nichesError.message)
             } else if (nichesData) {
-              nichesData.forEach(niche => {
+              nichesData.forEach((niche: any) => {
                 nichesMap[niche.id] = niche
               })
             }

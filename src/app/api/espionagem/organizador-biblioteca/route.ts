@@ -33,13 +33,14 @@ export async function GET(request: NextRequest) {
     // Buscar contagem de itens para cada pasta
     const pastasComContagem = await Promise.all(
       (pastas || []).map(async (pasta) => {
+        const pastaData = pasta as { id: string; [key: string]: any }
         const { count, error: countError } = await supabase
           .from('biblioteca_itens')
           .select('*', { count: 'exact', head: true })
-          .eq('pasta_id', pasta.id)
+          .eq('pasta_id', pastaData.id)
 
         return {
-          ...pasta,
+          ...pastaData,
           itens: [{ count: countError ? 0 : (count || 0) }]
         }
       })
@@ -74,8 +75,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { nome, descricao } = body
 
-    const { data, error } = await supabase
-      .from('biblioteca_pastas')
+    const { data, error } = await (supabase
+      .from('biblioteca_pastas') as any)
       .insert({
         user_id: user.id,
         nome,

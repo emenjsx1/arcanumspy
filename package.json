@@ -8,8 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "clean": "powershell -ExecutionPolicy Bypass -File ./clean-build.ps1",
-    "dev:clean": "npm run clean && npm run dev",
-    "scraper:facebook": "node workers/facebook-ad-library/index.js"
+    "dev:clean": "npm run clean && npm run dev"
   },
   "dependencies": {
     "@deepgram/sdk": "^4.11.2",
@@ -41,8 +40,6 @@
     "lucide-react": "^0.344.0",
     "next": "^14.2.0",
     "next-themes": "^0.2.1",
-    "node-cron": "^4.2.1",
-    "playwright": "^1.57.0",
     "postcss": "^8.4.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
@@ -54,7 +51,6 @@
     "tailwindcss": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.4.0",
-    "url-parse": "^1.5.10",
     "zod": "^3.22.0",
     "zustand": "^4.5.0"
   },

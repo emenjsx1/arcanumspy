@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/auth/isAuthenticated'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     // Verificar autenticação do usuário
     const { user, error: authError } = await getAuthenticatedUser(request)
@@ -31,7 +31,8 @@ export async function GET(request: Request) {
     }
 
     // Verificar se o token ainda é válido
-    const expiresAt = new Date(tokenData.expires_at)
+    const tokenDataTyped = tokenData as { expires_at?: string; created_at?: string; [key: string]: any }
+    const expiresAt = new Date(tokenDataTyped.expires_at || 0)
     const now = new Date()
     const isExpired = expiresAt <= now
 
@@ -47,11 +48,12 @@ export async function GET(request: Request) {
         .eq('user_id', user.id)
         .single()
 
-      if (fullTokenData?.access_token) {
+      const fullTokenDataTyped = fullTokenData as { access_token?: string; [key: string]: any } | null
+      if (fullTokenDataTyped?.access_token) {
         try {
           const profileResponse = await fetch('https://api.spotify.com/v1/me', {
             headers: {
-              'Authorization': `Bearer ${fullTokenData.access_token}`,
+              'Authorization': `Bearer ${fullTokenDataTyped.access_token}`,
             },
           })
 
@@ -71,7 +73,7 @@ export async function GET(request: Request) {
       connected: true,
       isPremium,
       needsRefresh,
-      expiresAt: tokenData.expires_at,
+      expiresAt: tokenDataTyped.expires_at,
     })
   } catch (error: any) {
     console.error('[GET /api/spotify/status] Erro:', error)

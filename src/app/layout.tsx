@@ -1,11 +1,11 @@
 import type { Metadata } from "next"
 import { Montserrat } from "next/font/google"
-import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { LocaleProvider } from "@/contexts/locale-context"
 import { LocaleWrapper } from "@/components/locale-wrapper"
 import { SWRProvider } from "@/components/providers/swr-provider"
+import "./globals.css"
 
 const montserrat = Montserrat({ 
   subsets: ["latin"],

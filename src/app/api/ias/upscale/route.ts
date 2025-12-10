@@ -107,8 +107,8 @@ export async function POST(request: NextRequest) {
     // Salvar no banco
     let savedData = null
     try {
-      const { data, error } = await supabase
-        .from('upscales')
+      const { data, error } = await (supabase
+        .from('upscales') as any)
         .insert({
           user_id: user.id,
           nome_arquivo: imageFile.name,

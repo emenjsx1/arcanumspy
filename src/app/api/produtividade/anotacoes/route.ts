@@ -118,8 +118,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data, error } = await supabase
-      .from('anotacoes')
+    const { data, error } = await (supabase
+      .from('anotacoes') as any)
       .insert({
         user_id: user.id,
         titulo,
@@ -202,8 +202,8 @@ export async function PATCH(request: Request) {
     if (conteudo !== undefined) updates.conteudo = conteudo
     if (cor !== undefined) updates.cor = cor
 
-    const { data, error } = await supabase
-      .from('anotacoes')
+    const { data, error } = await (supabase
+      .from('anotacoes') as any)
       .update(updates)
       .eq('id', id)
       .eq('user_id', user.id)

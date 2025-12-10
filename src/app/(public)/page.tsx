@@ -17,7 +17,6 @@ import {
   Star,
   Search,
   Sparkles,
-  Mic,
   Copy,
   BarChart3,
   Users,
@@ -237,7 +236,7 @@ export default function HomePage() {
 
             {/* Subtítulo */}
             <p className="text-sm sm:text-base md:text-lg lg:text-xl text-[#6b6b6b] dark:text-gray-400 max-w-[900px] mx-auto leading-relaxed px-4 sm:px-6 md:px-8 font-light">
-              Acesse milhares de ofertas escaladas, crie vozes IA, gere copy profissional e monitore criativos que estão dominando o mercado de resposta direta.
+              Acesse milhares de ofertas escaladas, gere copy profissional e monitore criativos que estão dominando o mercado de resposta direta.
             </p>
             
             {/* Badge de Funcionalidades */}
@@ -342,7 +341,7 @@ export default function HomePage() {
               {
                 icon: Zap,
                 title: "IA Avançada",
-                description: "Crie vozes clonadas e gere copy profissional usando inteligência artificial de ponta."
+                description: "Gere copy profissional usando inteligência artificial de ponta."
               },
               {
                 icon: BarChart3,
@@ -408,12 +407,6 @@ export default function HomePage() {
                 color: "bg-orange-50"
               },
               {
-                icon: Mic,
-                title: "IA de Voz",
-                description: "Clone sua voz ou de um narrador profissional e gere narrações para VSL, anúncios, TikTok, YouTube e muito mais. Processamento rápido com qualidade profissional.",
-                color: "bg-green-50"
-              },
-              {
                 icon: Layers,
                 title: "Monitoramento e Organização",
                 description: "Organize suas ofertas favoritas, acompanhe performance em tempo real e identifique oportunidades de escalar. Templates prontos e transcrições automáticas de VSLs.",
@@ -477,7 +470,7 @@ export default function HomePage() {
                 number: "3",
                 icon: Target,
                 title: "Implemente nas suas campanhas",
-                description: "Use as ferramentas de IA para criar vozes e copy, adapte as ofertas para seu mercado e comece a escalar."
+                description: "Use as ferramentas de IA para criar copy, adapte as ofertas para seu mercado e comece a escalar."
               }
             ].map((step, index) => (
               <ScrollAnimation key={index} delay={index * 0.1}>
@@ -519,7 +512,7 @@ export default function HomePage() {
                 name: "Maria Silva",
                 role: "Afiliada",
                 avatar: "MS",
-                text: "Consegui escalar minhas campanhas em 3x usando as ofertas e criativos da plataforma. A IA de voz economizou horas do meu tempo."
+                text: "Consegui escalar minhas campanhas em 3x usando as ofertas e criativos da plataforma."
               },
               {
                 name: "João Santos",
@@ -593,12 +586,6 @@ export default function HomePage() {
                   title: "Criativos de Anúncios",
                   description: "Monitore criativos vencedores do Facebook, Instagram e TikTok",
                   category: "Espionagem"
-                },
-                {
-                  icon: Mic,
-                  title: "IA de Voz",
-                  description: "Clone vozes e gere narrações profissionais para VSL, anúncios e mais",
-                  category: "Inteligência Artificial"
                 },
                 {
                   icon: Copy,

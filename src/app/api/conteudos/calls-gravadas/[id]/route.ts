@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { Database } from "@/types/database"
+
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 async function checkAdmin(request: NextRequest) {
   let isAdmin = false
@@ -18,7 +21,8 @@ async function checkAdmin(request: NextRequest) {
         .eq('id', userFromCookies.id)
         .single()
 
-      isAdmin = profile?.role === 'admin'
+      const profileData = profile as Pick<Profile, 'role'> | null
+      isAdmin = profileData?.role === 'admin'
     } else {
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
       if (authHeader?.startsWith('Bearer ')) {
@@ -45,7 +49,8 @@ async function checkAdmin(request: NextRequest) {
             .eq('id', tokenUser.id)
             .single()
 
-          isAdmin = profile?.role === 'admin'
+          const profileDataToken = profile as Pick<Profile, 'role'> | null
+          isAdmin = profileDataToken?.role === 'admin'
         }
       }
     }
@@ -90,8 +95,8 @@ export async function PUT(
       updateData.is_active = typeof is_active === 'boolean' ? is_active : (is_active !== false && is_active !== 'false')
     }
 
-    const { data, error } = await adminClient
-      .from('calls_gravadas')
+    const { data, error } = await (adminClient
+      .from('calls_gravadas') as any)
       .update(updateData)
       .eq('id', params.id)
       .select()

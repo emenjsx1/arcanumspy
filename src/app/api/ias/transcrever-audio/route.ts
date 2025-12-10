@@ -161,8 +161,8 @@ export async function POST(request: NextRequest) {
     // Salvar no banco
     let dbRecord = null
     try {
-      const { data, error: dbError } = await supabase
-        .from('transcricoes_audio')
+      const { data, error: dbError } = await (supabase
+        .from('transcricoes_audio') as any)
         .insert({
           user_id: user.id,
           nome_arquivo: audioFile.name,

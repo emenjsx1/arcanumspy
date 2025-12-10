@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { UpdateAulaInput } from "@/types/cursos"
+import { UpdateAulaInput, Aula, Modulo } from "@/types/cursos"
+import { Database } from "@/types/database"
+
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 async function checkAdmin(request: NextRequest) {
   let isAdmin = false
@@ -19,7 +22,8 @@ async function checkAdmin(request: NextRequest) {
         .eq('id', userFromCookies.id)
         .single()
 
-      isAdmin = profile?.role === 'admin'
+      const profileData = profile as Pick<Profile, 'role'> | null
+      isAdmin = profileData?.role === 'admin'
     } else {
       // Se não conseguir autenticar via cookies, tentar via header
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
@@ -47,7 +51,8 @@ async function checkAdmin(request: NextRequest) {
             .eq('id', tokenUser.id)
             .single()
 
-          isAdmin = profile?.role === 'admin'
+          const profileData = profile as Pick<Profile, 'role'> | null
+          isAdmin = profileData?.role === 'admin'
         }
       }
     }
@@ -104,13 +109,12 @@ export async function GET(
       .from('aulas')
       .select('*')
       .eq('id', params.id)
-      .single()
     
     if (!isAdmin) {
       query = query.eq('is_active', true)
     }
     
-    const { data, error } = await query
+    const { data, error } = await query.single()
 
     if (error) {
       return NextResponse.json(
@@ -128,10 +132,11 @@ export async function GET(
 
     // Se não for admin, verificar se o módulo e curso estão ativos
     if (!isAdmin) {
+      const aulaData = data as Aula
       const { data: modulo } = await supabase
         .from('modulos')
         .select('id, is_active, curso_id')
-        .eq('id', data.modulo_id)
+        .eq('id', aulaData.modulo_id)
         .eq('is_active', true)
         .single()
       
@@ -142,10 +147,11 @@ export async function GET(
         )
       }
       
+      const moduloData = modulo as Pick<Modulo, 'id' | 'is_active' | 'curso_id'>
       const { data: curso } = await supabase
         .from('cursos')
         .select('id, is_active')
-        .eq('id', modulo.curso_id)
+        .eq('id', moduloData.curso_id)
         .eq('is_active', true)
         .single()
       
@@ -201,8 +207,8 @@ export async function PUT(
     if (body.is_active !== undefined) updateData.is_active = body.is_active
 
     const adminClient = createAdminClient()
-    const { data, error } = await adminClient
-      .from('aulas')
+    const { data, error } = await (adminClient
+      .from('aulas') as any)
       .update(updateData)
       .eq('id', params.id)
       .select()

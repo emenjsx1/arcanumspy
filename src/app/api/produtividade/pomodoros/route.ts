@@ -76,15 +76,15 @@ export async function GET(request: Request) {
     // Calcular estatísticas
     const stats = {
       total: data?.length || 0,
-      completed: data?.filter(p => p.completed).length || 0,
-      total_focus_time: data?.filter(p => p.mode === 'focus' && p.completed)
-        .reduce((sum, p) => sum + p.completed_seconds, 0) || 0,
-      today: data?.filter(p => {
+      completed: (data as any[])?.filter((p: any) => p.completed).length || 0,
+      total_focus_time: (data as any[])?.filter((p: any) => p.mode === 'focus' && p.completed)
+        .reduce((sum: number, p: any) => sum + p.completed_seconds, 0) || 0,
+      today: (data as any[])?.filter((p: any) => {
         const today = new Date()
         const pomodoroDate = new Date(p.started_at)
         return today.toDateString() === pomodoroDate.toDateString()
       }).length || 0,
-      this_week: data?.filter(p => {
+      this_week: (data as any[])?.filter((p: any) => {
         const weekAgo = new Date()
         weekAgo.setDate(weekAgo.getDate() - 7)
         return new Date(p.started_at) >= weekAgo
@@ -159,8 +159,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data, error } = await supabase
-      .from('pomodoros')
+    const { data, error } = await (supabase
+      .from('pomodoros') as any)
       .insert({
         user_id: user.id,
         mode,
@@ -253,8 +253,8 @@ export async function PATCH(request: Request) {
       updates.notes = notes
     }
 
-    const { data, error } = await supabase
-      .from('pomodoros')
+    const { data, error } = await (supabase
+      .from('pomodoros') as any)
       .update(updates)
       .eq('id', id)
       .eq('user_id', user.id)

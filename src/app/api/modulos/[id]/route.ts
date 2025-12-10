@@ -19,7 +19,7 @@ async function checkAdmin(request: NextRequest) {
         .eq('id', userFromCookies.id)
         .single()
 
-      isAdmin = profile?.role === 'admin'
+      isAdmin = (profile as any)?.role === 'admin'
     } else {
       // Se não conseguir autenticar via cookies, tentar via header
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
@@ -47,7 +47,7 @@ async function checkAdmin(request: NextRequest) {
             .eq('id', tokenUser.id)
             .single()
 
-          isAdmin = profile?.role === 'admin'
+          isAdmin = (profile as any)?.role === 'admin'
         }
       }
     }
@@ -78,13 +78,12 @@ export async function GET(
       .from('modulos')
       .select('*')
       .eq('id', params.id)
-      .single()
     
     if (!isAdmin) {
       query = query.eq('is_active', true)
     }
     
-    const { data, error } = await query
+    const { data, error } = await query.single()
 
     if (error) {
       return NextResponse.json(
@@ -105,7 +104,7 @@ export async function GET(
       const { data: curso } = await supabase
         .from('cursos')
         .select('id, is_active')
-        .eq('id', data.curso_id)
+        .eq('id', (data as any).curso_id)
         .eq('is_active', true)
         .single()
       
@@ -159,8 +158,8 @@ export async function PUT(
     if (body.is_active !== undefined) updateData.is_active = body.is_active
 
     const adminClient = createAdminClient()
-    const { data, error } = await adminClient
-      .from('modulos')
+    const { data, error } = await (adminClient
+      .from('modulos') as any)
       .update(updateData)
       .eq('id', params.id)
       .select()
