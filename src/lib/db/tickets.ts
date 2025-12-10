@@ -233,7 +233,7 @@ export async function adminReplyToTicket(
     if (replyError) throw replyError
 
     // Update ticket
-    const updateData: TicketUpdate = {
+    const updateData: Partial<Ticket> = {
       last_reply_at: new Date().toISOString(),
       last_reply_from: 'admin',
     }

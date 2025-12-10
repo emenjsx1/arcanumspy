@@ -224,7 +224,7 @@ export async function updatePaymentStatus(paymentId: string, status: Payment['st
     const { createAdminClient } = await import('@/lib/supabase/admin')
     const adminClient = createAdminClient()
 
-    const updateData: PaymentUpdate = { status }
+    const updateData: Partial<Payment> = { status }
     if (paidAt) {
       updateData.paid_at = paidAt
     }

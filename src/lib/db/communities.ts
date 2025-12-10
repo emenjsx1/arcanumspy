@@ -239,7 +239,7 @@ export async function adminGetAllCommunitiesWithStats(): Promise<CommunityWithSt
 
     // Get member counts for each community
     const communitiesWithStats = await Promise.all(
-      (communities || []).map(async (community) => {
+      (communities || []).map(async (community: any) => {
         const { count } = await adminClient
           .from('community_members')
           .select('*', { count: 'exact', head: true })
@@ -267,9 +267,19 @@ export async function adminCreateCommunity(community: CommunityInsert): Promise<
     const { createAdminClient } = await import('@/lib/supabase/admin')
     const adminClient = createAdminClient()
 
+    const insertData: Omit<Community, 'id' | 'created_at'> & { id?: string; created_at?: string } = {
+      name: community.name,
+      description: community.description ?? null,
+      is_paid: community.is_paid ?? false,
+      join_link: community.join_link,
+      is_active: community.is_active ?? true,
+      ...(community.id && { id: community.id }),
+      ...(community.created_at && { created_at: community.created_at }),
+    }
+
     const { data, error } = await adminClient
       .from('communities')
-      .insert(community)
+      .insert([insertData])
       .select()
       .single()
 
@@ -290,9 +300,19 @@ export async function adminUpdateCommunity(id: string, updates: CommunityUpdate)
     const { createAdminClient } = await import('@/lib/supabase/admin')
     const adminClient = createAdminClient()
 
+    // Converter CommunityUpdate para o formato esperado pelo Supabase
+    const updateData: Partial<Community> = {
+      ...(updates.name !== undefined && { name: updates.name }),
+      ...(updates.description !== undefined && { description: updates.description }),
+      ...(updates.is_paid !== undefined && { is_paid: updates.is_paid }),
+      ...(updates.join_link !== undefined && { join_link: updates.join_link }),
+      ...(updates.is_active !== undefined && { is_active: updates.is_active }),
+      ...(updates.created_at !== undefined && { created_at: updates.created_at }),
+    }
+
     const { data, error } = await adminClient
       .from('communities')
-      .update(updates)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()

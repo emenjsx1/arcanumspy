@@ -111,9 +111,19 @@ export async function adminGetAllNiches(): Promise<NicheWithCategory[]> {
  */
 export async function adminCreateNiche(niche: NicheInsert): Promise<Niche | null> {
   try {
+    const insertData: Omit<Niche, 'id' | 'created_at'> & { id?: string; created_at?: string } = {
+      name: niche.name,
+      slug: niche.slug,
+      description: niche.description ?? null,
+      category_id: niche.category_id,
+      is_active: niche.is_active ?? true,
+      ...(niche.id && { id: niche.id }),
+      ...(niche.created_at && { created_at: niche.created_at }),
+    }
+
     const { data, error } = await supabase
       .from('niches')
-      .insert(niche)
+      .insert([insertData])
       .select()
       .single()
 
@@ -131,9 +141,19 @@ export async function adminCreateNiche(niche: NicheInsert): Promise<Niche | null
  */
 export async function adminUpdateNiche(id: string, updates: NicheUpdate): Promise<Niche | null> {
   try {
+    // Converter NicheUpdate para o formato esperado pelo Supabase
+    const updateData: Partial<Niche> = {
+      ...(updates.name !== undefined && { name: updates.name }),
+      ...(updates.slug !== undefined && { slug: updates.slug }),
+      ...(updates.description !== undefined && { description: updates.description }),
+      ...(updates.category_id !== undefined && { category_id: updates.category_id }),
+      ...(updates.is_active !== undefined && { is_active: updates.is_active }),
+      ...(updates.created_at !== undefined && { created_at: updates.created_at }),
+    }
+
     const { data, error } = await supabase
       .from('niches')
-      .update(updates)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
