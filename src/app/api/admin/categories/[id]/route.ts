@@ -8,11 +8,35 @@ import { createAdminClient } from "@/lib/supabase/admin"
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    const resolvedParams = await Promise.resolve(params)
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    let { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    // Se não conseguir via cookies, tentar via header
+    if (authError || !user) {
+      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
+        const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        })
+        const { data: { user: userFromToken } } = await tempClient.auth.getUser(token)
+        if (userFromToken) {
+          user = userFromToken
+          authError = null
+        }
+      }
+    }
 
     if (authError || !user) {
       return NextResponse.json(
@@ -21,8 +45,9 @@ export async function PUT(
       )
     }
 
-    // Verificar se é admin
-    const { data: profile } = await supabase
+    // Verificar se é admin (usar adminClient para bypass RLS)
+    const adminClient = createAdminClient()
+    const { data: profile } = await adminClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
@@ -78,11 +103,35 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    const resolvedParams = await Promise.resolve(params)
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    let { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    // Se não conseguir via cookies, tentar via header
+    if (authError || !user) {
+      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
+        const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        })
+        const { data: { user: userFromToken } } = await tempClient.auth.getUser(token)
+        if (userFromToken) {
+          user = userFromToken
+          authError = null
+        }
+      }
+    }
 
     if (authError || !user) {
       return NextResponse.json(
@@ -91,8 +140,9 @@ export async function DELETE(
       )
     }
 
-    // Verificar se é admin
-    const { data: profile } = await supabase
+    // Verificar se é admin (usar adminClient para bypass RLS)
+    const adminClient = createAdminClient()
+    const { data: profile } = await adminClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
@@ -106,11 +156,10 @@ export async function DELETE(
       )
     }
 
-    const adminClient = createAdminClient()
     const { error } = await adminClient
       .from('categories')
       .delete()
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
 
     if (error) throw error
 
