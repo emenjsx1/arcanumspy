@@ -514,11 +514,29 @@ export default function AccountPage() {
                     <p className="text-sm text-muted-foreground">Carregando...</p>
                   ) : currentSubscription?.plan ? (
                     <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold">{currentSubscription.plan.name}</p>
                         <p className="text-sm text-muted-foreground">
                           {new Intl.NumberFormat(locale, { style: 'currency', currency }).format(currentSubscription.plan.price_monthly_cents / 100)}/mês
                         </p>
+                        {profile?.subscription_ends_at && (
+                          <p className="text-xs text-[#ff5a1f] mt-1 font-medium">
+                            Expira em: {new Date(profile.subscription_ends_at).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: 'long',
+                              year: 'numeric'
+                            })}
+                          </p>
+                        )}
+                        {currentSubscription.current_period_end && (
+                          <p className="text-xs text-[#ff5a1f] mt-1 font-medium">
+                            Expira em: {new Date(currentSubscription.current_period_end).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: 'long',
+                              year: 'numeric'
+                            })}
+                          </p>
+                        )}
                       </div>
                       <Link href="/billing">
                         <Button variant="outline" size="sm">
