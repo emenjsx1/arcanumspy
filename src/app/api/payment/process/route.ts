@@ -114,10 +114,7 @@ export async function POST(request: NextRequest) {
       ? (process.env.MPESA_WALLET_ID || MPESA_WALLET_ID)
       : (process.env.EMOLA_WALLET_ID || EMOLA_WALLET_ID)
 
-    // Verificar se o token está configurado
-    if (!accessToken || accessToken === DEFAULT_TOKEN) {
-      console.warn('⚠️ [Payment API] Usando token padrão. Configure variável de ambiente:', envTokenKey)
-    }
+    // Token já obtido acima
 
     // Montar URL da API
     const apiUrl = `https://mpesaemolatech.com/v1/c2b/${method}-payment/${walletId}`
