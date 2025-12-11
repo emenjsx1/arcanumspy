@@ -217,8 +217,9 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
+    // Ler body apenas uma vez
+    const body = await request.json()
+    const { id, name, slug, description, emoji, is_premium } = body
 
     if (!id) {
       return NextResponse.json(
@@ -227,10 +228,6 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
-    const { name, slug, description, emoji, is_premium } = body
-
-    const adminClient = createAdminClient()
     const updateData: {
       name?: string
       slug?: string

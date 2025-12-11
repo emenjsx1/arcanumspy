@@ -21,8 +21,20 @@ export async function POST(request: NextRequest) {
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7)
-        const { data: { user: userFromToken } } = await supabase.auth.getUser(token)
-        user = userFromToken
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
+        const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        })
+        const { data: { user: userFromToken } } = await tempClient.auth.getUser(token)
+        if (userFromToken) {
+          user = userFromToken
+        }
       }
     }
 

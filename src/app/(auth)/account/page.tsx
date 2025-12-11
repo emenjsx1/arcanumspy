@@ -22,6 +22,9 @@ import { User, Upload, X, Loader2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useLocale } from "@/contexts/locale-context"
+import { MessageSquare, Plus, Loader2, Send } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
@@ -374,12 +377,13 @@ export default function AccountPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="profile">Perfil</TabsTrigger>
-          <TabsTrigger value="preferences">Preferências</TabsTrigger>
-          <TabsTrigger value="security">Segurança</TabsTrigger>
-        </TabsList>
+          <Tabs defaultValue="profile" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="profile">Perfil</TabsTrigger>
+              <TabsTrigger value="preferences">Preferências</TabsTrigger>
+              <TabsTrigger value="security">Segurança</TabsTrigger>
+              <TabsTrigger value="support">Suporte</TabsTrigger>
+            </TabsList>
 
         <TabsContent value="profile">
           <Card>
@@ -664,6 +668,10 @@ export default function AccountPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="support">
+          <SupportTicketsTab />
         </TabsContent>
       </Tabs>
     </div>
