@@ -196,8 +196,12 @@ export default function CheckoutPage() {
         }
 
         // Redirecionar para dashboard
+        setLoading(false)
         router.push('/dashboard')
       } else {
+        // Fechar popup de processamento
+        setShowProcessingDialog(false)
+        
         // Tratar erros específicos
         let errorTitle = "Erro no pagamento"
         let errorMessage = "Ocorreu um erro ao processar o pagamento. Tente novamente."
