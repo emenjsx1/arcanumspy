@@ -403,7 +403,7 @@ export default function CheckoutPage() {
           if (!open && loading) return
           setShowProcessingDialog(open)
         }}>
-          <DialogContent className="sm:max-w-md" closeButton={false}>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-[#0b0c10] dark:text-white">
                 <Loader2 className="h-5 w-5 animate-spin text-[#ff5a1f]" />
