@@ -146,10 +146,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Obter credenciais (priorizar variáveis de ambiente)
-    const accessToken = process.env[`${method.toUpperCase()}_ACCESS_TOKEN`] || DEFAULT_TOKEN
+    const envTokenKey = method === 'mpesa' ? 'MPESA_ACCESS_TOKEN' : 'EMOLA_ACCESS_TOKEN'
+    const accessToken = process.env[envTokenKey] || DEFAULT_TOKEN
     const walletId = method === 'mpesa'
       ? (process.env.MPESA_WALLET_ID || MPESA_WALLET_ID)
       : (process.env.EMOLA_WALLET_ID || EMOLA_WALLET_ID)
+
+    // Verificar se o token está configurado
+    if (!accessToken || accessToken === DEFAULT_TOKEN) {
+      console.warn('⚠️ [Payment API] Usando token padrão. Configure variável de ambiente:', envTokenKey)
+    }
 
     // Montar URL da API
     const apiUrl = `https://mpesaemolatech.com/v1/c2b/${method}-payment/${walletId}`
@@ -161,7 +167,9 @@ export async function POST(request: NextRequest) {
       amount: amountNum,
       reference: cleanReference,
       walletId: walletId,
-      hasToken: !!accessToken
+      hasToken: !!accessToken,
+      tokenSource: process.env[envTokenKey] ? 'env' : 'default',
+      tokenLength: accessToken?.length || 0
     })
 
     // Fazer requisição para API e-Mola/M-Pesa
@@ -304,13 +312,20 @@ export async function POST(request: NextRequest) {
           response: responseData
         })
         
+        // Mensagem específica para erro 401 (token expirado/inválido)
+        let errorMessage = responseData.message || responseData.error || 'Erro ao processar pagamento na API externa'
+        if (apiResponse.status === 401) {
+          errorMessage = 'Token de acesso à API de pagamento expirado ou inválido. Por favor, entre em contato com o suporte ou tente novamente mais tarde.'
+          console.error('🔑 [Payment API] Token da API externa inválido. Verifique:', envTokenKey)
+        }
+        
         return NextResponse.json(
           {
             success: false,
-            message: responseData.message || responseData.error || 'Erro ao processar pagamento na API externa',
+            message: errorMessage,
             status: apiResponse.status,
-            details: responseData,
-            error_type: 'api_external_error'
+            details: process.env.NODE_ENV === 'development' ? responseData : undefined,
+            error_type: apiResponse.status === 401 ? 'token_expired' : 'api_external_error'
           },
           { status: apiResponse.status }
         )
