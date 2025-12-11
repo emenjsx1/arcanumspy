@@ -176,18 +176,58 @@ export async function POST(request: NextRequest) {
       })
       
       if (isSuccess) {
-        console.log('✅ [Payment API] Pagamento bem-sucedido, iniciando ativação da conta...')
+        console.log('✅ [Payment API] Pagamento bem-sucedido (status 200), ativando conta IMEDIATAMENTE...')
         const transactionId = responseData.transaction_id || 
                               responseData.reference || 
                               responseData.id || 
                               responseData.transactionId ||
                               cleanReference
 
-        // Criar assinatura
+        // ATIVAR CONTA IMEDIATAMENTE - PRIORIDADE MÁXIMA
         const adminClient = createAdminClient()
         const now = new Date()
         const expiresAt = new Date()
         expiresAt.setDate(expiresAt.getDate() + (months * 30))
+        
+        // PASSO 1: ATIVAR CONTA NO PERFIL PRIMEIRO (mais importante)
+        console.log('🚀 [Payment API] Ativando conta no perfil...')
+        try {
+          const { error: profileError } = await (adminClient
+            .from('profiles') as any)
+            .update({
+              has_active_subscription: true,
+              subscription_ends_at: expiresAt.toISOString(),
+              updated_at: now.toISOString(),
+            })
+            .eq('id', user.id)
+
+          if (profileError) {
+            console.error('❌ [Payment API] Erro ao ativar perfil:', profileError)
+            // Tentar apenas has_active_subscription
+            await (adminClient
+              .from('profiles') as any)
+              .update({
+                has_active_subscription: true,
+              })
+              .eq('id', user.id)
+          } else {
+            console.log('✅ [Payment API] Conta ativada no perfil com sucesso!')
+          }
+        } catch (profileErr: any) {
+          console.error('❌ [Payment API] Erro crítico ao ativar perfil:', profileErr)
+          // Tentar uma última vez apenas com has_active_subscription
+          try {
+            await (adminClient
+              .from('profiles') as any)
+              .update({
+                has_active_subscription: true,
+              })
+              .eq('id', user.id)
+            console.log('✅ [Payment API] Conta ativada (tentativa final)')
+          } catch (finalErr) {
+            console.error('❌ [Payment API] Falha total ao ativar conta:', finalErr)
+          }
+        }
 
         // Buscar ou criar plan_id (usar um plano padrão se não existir)
         let planId: string | null = null
