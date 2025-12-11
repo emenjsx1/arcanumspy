@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { useAuthStore } from "@/store/auth-store"
 import { Sidebar } from "@/components/layout/sidebar"
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Moon, Sun, User, CreditCard, LogOut, Shield } from "lucide-react"
 import { useTheme } from "next-themes"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function AuthLayout({
   children,
@@ -26,6 +27,8 @@ export default function AuthLayout({
 }) {
   const { isAuthenticated, user, initialize, isLoading } = useAuthStore()
   const router = useRouter()
+  const pathname = usePathname()
+  const { toast } = useToast()
   const [mounted, setMounted] = useState(false)
   // CORREÇÃO: Flag para evitar múltiplos redirecionamentos simultâneos
   const [redirecting, setRedirecting] = useState(false)
@@ -125,11 +128,12 @@ export default function AuthLayout({
     return () => clearTimeout(timeout)
   }, [])
 
-  // Verificar se usuário tem pagamento confirmado
+  // Verificar se usuário tem pagamento confirmado - SEMPRE que mudar de rota
   useEffect(() => {
     const checkPayment = async () => {
       if (!user || !isAuthenticated) {
         setCheckingPayment(false)
+        setHasActivePayment(false)
         return
       }
 
@@ -145,7 +149,6 @@ export default function AuthLayout({
           setHasActivePayment(false)
         }
       } catch (error) {
-        console.error('Erro ao verificar pagamento:', error)
         setHasActivePayment(false)
       } finally {
         setCheckingPayment(false)
@@ -155,25 +158,31 @@ export default function AuthLayout({
     if (isAuthenticated && user && initialized) {
       checkPayment()
     }
-  }, [isAuthenticated, user, initialized])
+  }, [isAuthenticated, user, initialized, pathname]) // Adicionar pathname para verificar em cada mudança de rota
 
-  // Verificar se subscription expirou e bloquear acesso imediatamente
+  // BLOQUEAR ACESSO IMEDIATAMENTE se não tem pagamento - verificar em TODAS as rotas
   useEffect(() => {
-    if (!checkingPayment && hasActivePayment === false && isAuthenticated && user && !redirecting) {
-      const currentPath = window.location.pathname
-      // Não redirecionar se já está no checkout
-      if (!currentPath.includes('/checkout')) {
+    // Não fazer nada se ainda está verificando
+    if (checkingPayment) return
+    
+    // Não fazer nada se não está autenticado (já será redirecionado pelo outro useEffect)
+    if (!isAuthenticated || !user) return
+    
+    // Se não tem pagamento ativo E não está na página de checkout
+    if (hasActivePayment === false && pathname && !pathname.includes('/checkout')) {
+      // Bloquear imediatamente e redirecionar
+      if (!redirecting) {
         setRedirecting(true)
         toast({
-          title: "Assinatura Expirada",
-          description: "Sua assinatura expirou. Por favor, renove seu plano para continuar usando a plataforma.",
+          title: "Pagamento Necessário",
+          description: "Você precisa completar o pagamento para acessar a plataforma. Escolha um plano para continuar.",
           variant: "destructive",
           duration: 5000
         })
-        router.push('/checkout?plan=mensal')
+        router.replace('/checkout?plan=mensal')
       }
     }
-  }, [hasActivePayment, checkingPayment, isAuthenticated, user, redirecting, router, toast])
+  }, [hasActivePayment, checkingPayment, isAuthenticated, user, redirecting, router, toast, pathname])
   
   // CORREÇÃO: Mostrar loading apenas se ainda não inicializou E não passou o timeout de segurança
   // Se passou o timeout, sempre permitir renderização (mesmo que ainda esteja carregando)
@@ -190,17 +199,20 @@ export default function AuthLayout({
     )
   }
 
-  // Bloquear acesso se não tem pagamento confirmado (exceto checkout)
-  if (hasActivePayment === false && !window.location.pathname.includes('/checkout')) {
+  // BLOQUEAR ACESSO se não tem pagamento confirmado (exceto checkout e billing)
+  // Verificar usando pathname em vez de window.location para SSR
+  const isCheckoutPage = pathname?.includes('/checkout') || pathname?.includes('/billing')
+  
+  if (!checkingPayment && hasActivePayment === false && isAuthenticated && user && !isCheckoutPage) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center max-w-md mx-auto p-6">
           <h2 className="text-2xl font-bold mb-4">Pagamento Necessário</h2>
           <p className="text-muted-foreground mb-6">
-            Você precisa completar o pagamento para acessar a plataforma.
+            Você precisa completar o pagamento para acessar a plataforma. Escolha um plano para continuar.
           </p>
           <Button onClick={() => router.push('/checkout?plan=mensal')} className="bg-[#ff5a1f] hover:bg-[#ff4d29]">
-            Ir para Checkout
+            Escolher Plano e Pagar
           </Button>
         </div>
       </div>
