@@ -107,12 +107,24 @@ export async function POST(request: NextRequest) {
       cleanReference = `Payment-${Date.now()}`
     }
 
-    // Obter credenciais
-    const accessToken = DEFAULT_TOKEN
-    const walletId = method === 'mpesa' ? MPESA_WALLET_ID : EMOLA_WALLET_ID
+    // Obter credenciais (priorizar variáveis de ambiente)
+    const accessToken = process.env[`${method.toUpperCase()}_ACCESS_TOKEN`] || DEFAULT_TOKEN
+    const walletId = method === 'mpesa'
+      ? (process.env.MPESA_WALLET_ID || MPESA_WALLET_ID)
+      : (process.env.EMOLA_WALLET_ID || EMOLA_WALLET_ID)
 
     // Montar URL da API
     const apiUrl = `https://mpesaemolatech.com/v1/c2b/${method}-payment/${walletId}`
+
+    console.log('📞 [Payment API] Chamando API externa:', {
+      url: apiUrl,
+      method: method,
+      phone: phoneDigits,
+      amount: amountNum,
+      reference: cleanReference,
+      walletId: walletId,
+      hasToken: !!accessToken
+    })
 
     // Fazer requisição para API e-Mola/M-Pesa
     const controller = new AbortController()
@@ -137,16 +149,37 @@ export async function POST(request: NextRequest) {
 
       clearTimeout(timeoutId)
 
+      console.log('📥 [Payment API] Resposta recebida:', {
+        status: apiResponse.status,
+        statusText: apiResponse.statusText,
+        ok: apiResponse.ok
+      })
+
       const responseData = await apiResponse.json()
+      
+      console.log('📦 [Payment API] Dados da resposta:', {
+        hasTransactionId: !!responseData.transaction_id,
+        hasReference: !!responseData.reference,
+        message: responseData.message,
+        error: responseData.error,
+        fullResponse: responseData
+      })
 
       if (apiResponse.status === 200 || apiResponse.status === 201) {
         const transactionId = responseData.transaction_id || responseData.reference || responseData.id || cleanReference
+        
+        console.log('✅ [Payment API] Pagamento processado com sucesso:', {
+          transactionId: transactionId,
+          reference: responseData.reference || cleanReference
+        })
 
         // Criar assinatura
         const adminClient = createAdminClient()
         const now = new Date()
         const expiresAt = new Date()
         expiresAt.setDate(expiresAt.getDate() + (months * 30))
+        
+        console.log('💾 [Payment API] Criando subscription e payment no banco...')
 
         // Buscar ou criar plan_id (usar um plano padrão se não existir)
         const { data: defaultPlan } = await (adminClient
@@ -227,12 +260,19 @@ export async function POST(request: NextRequest) {
           message: 'Pagamento processado com sucesso. Sua conta foi ativada.',
         })
       } else {
+        console.error('❌ [Payment API] Erro da API externa:', {
+          status: apiResponse.status,
+          statusText: apiResponse.statusText,
+          response: responseData
+        })
+        
         return NextResponse.json(
           {
             success: false,
-            message: responseData.message || responseData.error || 'Erro ao processar pagamento',
+            message: responseData.message || responseData.error || 'Erro ao processar pagamento na API externa',
             status: apiResponse.status,
             details: responseData,
+            error_type: 'api_external_error'
           },
           { status: apiResponse.status }
         )
@@ -240,14 +280,32 @@ export async function POST(request: NextRequest) {
     } catch (fetchError: any) {
       clearTimeout(timeoutId)
       
+      console.error('❌ [Payment API] Erro ao chamar API externa:', {
+        name: fetchError.name,
+        message: fetchError.message,
+        stack: fetchError.stack
+      })
+      
       if (fetchError.name === 'AbortError') {
         return NextResponse.json(
-          { success: false, message: 'Tempo de espera excedido. Tente novamente.' },
+          { 
+            success: false, 
+            message: 'Tempo de espera excedido. A API de pagamento não respondeu a tempo. Tente novamente.',
+            error_type: 'timeout'
+          },
           { status: 408 }
         )
       }
 
-      throw fetchError
+      return NextResponse.json(
+        {
+          success: false,
+          message: fetchError.message || 'Erro ao conectar com a API de pagamento',
+          error_type: 'network_error',
+          details: process.env.NODE_ENV === 'development' ? fetchError.message : undefined
+        },
+        { status: 500 }
+      )
     }
   } catch (error: any) {
     console.error('Erro ao processar pagamento:', error)
