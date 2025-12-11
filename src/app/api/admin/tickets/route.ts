@@ -37,8 +37,10 @@ export async function GET(request: Request) {
       )
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabase
+    // Check if user is admin (usar adminClient para bypass RLS)
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const adminClient = createAdminClient()
+    const { data: profile } = await adminClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
