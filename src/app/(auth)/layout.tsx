@@ -140,15 +140,19 @@ export default function AuthLayout({
       try {
         const response = await fetch('/api/payment/check', {
           credentials: 'include',
+          cache: 'no-store', // Não usar cache para garantir dados atualizados
         })
         
         if (response.ok) {
           const data = await response.json()
+          console.log('🔍 [Layout] Verificação de pagamento:', data)
           setHasActivePayment(data.hasActivePayment || false)
         } else {
+          console.warn('⚠️ [Layout] Erro ao verificar pagamento:', response.status)
           setHasActivePayment(false)
         }
       } catch (error) {
+        console.error('❌ [Layout] Erro ao verificar pagamento:', error)
         setHasActivePayment(false)
       } finally {
         setCheckingPayment(false)
