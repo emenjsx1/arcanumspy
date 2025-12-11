@@ -16,14 +16,31 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user: userFromCookies }, error: cookieError } = await supabase.auth.getUser()
     
+    console.log('🔐 [Payment API] Tentativa de autenticação via cookies:', {
+      hasUser: !!userFromCookies,
+      hasError: !!cookieError,
+      errorMessage: cookieError?.message
+    })
+    
     if (userFromCookies && !cookieError) {
       user = userFromCookies
+      console.log('✅ [Payment API] Usuário autenticado via cookies:', user.id)
     } else {
       authError = cookieError
       // Se não conseguir via cookies, tentar via header
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+      console.log('🔐 [Payment API] Tentando autenticação via header:', {
+        hasHeader: !!authHeader,
+        headerPrefix: authHeader?.substring(0, 20) + '...'
+      })
+      
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7)
+        console.log('🔑 [Payment API] Token extraído:', {
+          tokenLength: token.length,
+          tokenPrefix: token.substring(0, 20) + '...'
+        })
+        
         try {
           // Validar token diretamente com Supabase (seguindo padrão de outras APIs)
           const supabaseModule = await import('@supabase/supabase-js')
@@ -33,7 +50,10 @@ export async function POST(request: NextRequest) {
           
           if (!supabaseUrl || !supabaseAnonKey) {
             console.error('⚠️ [Payment API] Variáveis de ambiente do Supabase não configuradas')
+            authError = new Error('Variáveis de ambiente do Supabase não configuradas')
           } else {
+            console.log('🔧 [Payment API] Criando cliente Supabase temporário...')
+            
             // Criar cliente com token no header global (padrão usado em outras APIs)
             const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
               global: {
@@ -42,23 +62,41 @@ export async function POST(request: NextRequest) {
                 },
               },
             })
+            
+            console.log('🔍 [Payment API] Validando token com getUser()...')
             const { data: { user: userFromToken }, error: tokenError } = await tempClient.auth.getUser(token)
+            
+            console.log('📊 [Payment API] Resultado da validação:', {
+              hasUser: !!userFromToken,
+              hasError: !!tokenError,
+              errorMessage: tokenError?.message,
+              errorStatus: tokenError?.status,
+              userId: userFromToken?.id
+            })
             
             if (userFromToken && !tokenError) {
               user = userFromToken
               authError = null
               console.log('✅ [Payment API] Usuário autenticado via token:', user.id)
             } else {
-              console.error('⚠️ [Payment API] Erro ao validar token:', tokenError?.message || 'Token inválido')
-              authError = tokenError
+              console.error('⚠️ [Payment API] Erro ao validar token:', {
+                message: tokenError?.message || 'Token inválido',
+                status: tokenError?.status,
+                name: tokenError?.name
+              })
+              authError = tokenError || new Error('Token inválido')
             }
           }
         } catch (error: any) {
-          console.error('⚠️ [Payment API] Erro ao criar cliente temporário:', error.message || error)
+          console.error('⚠️ [Payment API] Erro ao criar cliente temporário:', {
+            message: error.message || error,
+            stack: error.stack
+          })
           authError = error
         }
       } else {
         console.warn('⚠️ [Payment API] Nenhum token de autenticação encontrado no header')
+        authError = new Error('Token não encontrado no header Authorization')
       }
     }
 
