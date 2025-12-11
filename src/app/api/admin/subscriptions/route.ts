@@ -74,8 +74,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Verificar se é admin
-    const { data: profile } = await supabase
+    // Verificar se é admin (usar adminClient para bypass RLS)
+    const adminClient = createAdminClient()
+    const { data: profile } = await adminClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
@@ -89,7 +90,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const adminClient = createAdminClient()
     const { searchParams } = new URL(request.url)
 
     // Filtros

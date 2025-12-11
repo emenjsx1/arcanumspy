@@ -5,19 +5,32 @@ import { adminGetAllTickets } from "@/lib/db/tickets"
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
+    let { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError) {
-      console.error('Auth error in GET /api/admin/tickets:', authError)
-      return NextResponse.json(
-        { error: "Erro de autenticação: " + authError.message },
-        { status: 401 }
-      )
+    // Se não conseguir via cookies, tentar via header
+    if (authError || !user) {
+      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
+        const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        })
+        const { data: { user: userFromToken } } = await tempClient.auth.getUser(token)
+        if (userFromToken) {
+          user = userFromToken
+          authError = null
+        }
+      }
     }
     
-    if (!user) {
-      console.error('No user in GET /api/admin/tickets')
+    if (authError || !user) {
       return NextResponse.json(
         { error: "Não autenticado" },
         { status: 401 }
