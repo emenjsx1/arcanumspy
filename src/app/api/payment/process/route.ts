@@ -17,30 +17,15 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user: userFromCookies }, error: cookieError } = await supabase.auth.getUser()
     
-    console.log('🔐 [Payment API] Tentativa de autenticação via cookies:', {
-      hasUser: !!userFromCookies,
-      hasError: !!cookieError,
-      errorMessage: cookieError?.message
-    })
-    
     if (userFromCookies && !cookieError) {
       user = userFromCookies
-      console.log('✅ [Payment API] Usuário autenticado via cookies:', user.id)
     } else {
       authError = cookieError
       // Se não conseguir via cookies, tentar via header
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
-      console.log('🔐 [Payment API] Tentando autenticação via header:', {
-        hasHeader: !!authHeader,
-        headerPrefix: authHeader?.substring(0, 20) + '...'
-      })
       
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7)
-        console.log('🔑 [Payment API] Token extraído:', {
-          tokenLength: token.length,
-          tokenPrefix: token.substring(0, 20) + '...'
-        })
         
         try {
           // Validar token diretamente com Supabase (seguindo padrão de outras APIs)
@@ -50,11 +35,8 @@ export async function POST(request: NextRequest) {
           const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
           
           if (!supabaseUrl || !supabaseAnonKey) {
-            console.error('⚠️ [Payment API] Variáveis de ambiente do Supabase não configuradas')
-            authError = new Error('Variáveis de ambiente do Supabase não configuradas')
+            authError = new Error('Configuração inválida')
           } else {
-            console.log('🔧 [Payment API] Criando cliente Supabase temporário...')
-            
             // Criar cliente com token no header global (padrão usado em outras APIs)
             const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
               global: {
@@ -64,45 +46,24 @@ export async function POST(request: NextRequest) {
               },
             })
             
-            console.log('🔍 [Payment API] Validando token com getUser()...')
             const { data: { user: userFromToken }, error: tokenError } = await tempClient.auth.getUser(token)
-            
-            console.log('📊 [Payment API] Resultado da validação:', {
-              hasUser: !!userFromToken,
-              hasError: !!tokenError,
-              errorMessage: tokenError?.message,
-              errorStatus: tokenError?.status,
-              userId: userFromToken?.id
-            })
             
             if (userFromToken && !tokenError) {
               user = userFromToken
               authError = null
-              console.log('✅ [Payment API] Usuário autenticado via token:', user.id)
             } else {
-              console.error('⚠️ [Payment API] Erro ao validar token:', {
-                message: tokenError?.message || 'Token inválido',
-                status: tokenError?.status,
-                name: tokenError?.name
-              })
               authError = tokenError || new Error('Token inválido')
             }
           }
         } catch (error: any) {
-          console.error('⚠️ [Payment API] Erro ao criar cliente temporário:', {
-            message: error.message || error,
-            stack: error.stack
-          })
           authError = error
         }
       } else {
-        console.warn('⚠️ [Payment API] Nenhum token de autenticação encontrado no header')
-        authError = new Error('Token não encontrado no header Authorization')
+        authError = new Error('Token não encontrado')
       }
     }
 
     if (!user) {
-      console.error('❌ [Payment API] Usuário não autenticado. Cookie error:', authError?.message || 'Nenhum método de autenticação funcionou')
       return NextResponse.json(
         { 
           success: false, 
@@ -161,18 +122,6 @@ export async function POST(request: NextRequest) {
     // Montar URL da API
     const apiUrl = `https://mpesaemolatech.com/v1/c2b/${method}-payment/${walletId}`
 
-    console.log('📞 [Payment API] Chamando API externa:', {
-      url: apiUrl,
-      method: method,
-      phone: phoneDigits,
-      amount: amountNum,
-      reference: cleanReference,
-      walletId: walletId,
-      hasToken: !!accessToken,
-      tokenSource: process.env[envTokenKey] ? 'env' : 'default',
-      tokenLength: accessToken?.length || 0
-    })
-
     // Fazer requisição para API e-Mola/M-Pesa
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 segundos
@@ -214,19 +163,12 @@ export async function POST(request: NextRequest) {
 
       if (apiResponse.status === 200 || apiResponse.status === 201) {
         const transactionId = responseData.transaction_id || responseData.reference || responseData.id || cleanReference
-        
-        console.log('✅ [Payment API] Pagamento processado com sucesso:', {
-          transactionId: transactionId,
-          reference: responseData.reference || cleanReference
-        })
 
         // Criar assinatura
         const adminClient = createAdminClient()
         const now = new Date()
         const expiresAt = new Date()
         expiresAt.setDate(expiresAt.getDate() + (months * 30))
-        
-        console.log('💾 [Payment API] Criando subscription e payment no banco...')
 
         // Buscar ou criar plan_id (usar um plano padrão se não existir)
         const { data: defaultPlan } = await (adminClient
@@ -307,28 +249,21 @@ export async function POST(request: NextRequest) {
           message: 'Pagamento processado com sucesso. Sua conta foi ativada.',
         })
       } else {
-        console.error('❌ [Payment API] Erro da API externa:', {
-          status: apiResponse.status,
-          statusText: apiResponse.statusText,
-          response: responseData
-        })
-        
         // Mensagens específicas para diferentes erros
-        let errorMessage = responseData.message || responseData.error || 'Erro ao processar pagamento na API externa'
+        let errorMessage = 'Erro ao processar pagamento. Tente novamente.'
         let errorType = 'api_external_error'
         
         if (apiResponse.status === 401) {
-          errorMessage = 'Token de acesso à API de pagamento expirado ou inválido. Por favor, entre em contato com o suporte ou tente novamente mais tarde.'
+          errorMessage = 'Erro de autenticação. Tente novamente mais tarde.'
           errorType = 'token_expired'
-          console.error('🔑 [Payment API] Token da API externa inválido. Verifique:', envTokenKey)
         } else if (apiResponse.status === 422) {
-          // Erro 422 geralmente indica saldo insuficiente ou dados inválidos
-          errorMessage = responseData.message || 'Saldo insuficiente na sua conta. Por favor, recarregue sua conta M-Pesa/e-Mola e tente novamente.'
+          // Erro 422 = Saldo insuficiente
+          errorMessage = 'Saldo insuficiente na sua conta. Por favor, recarregue sua conta M-Pesa/e-Mola e tente novamente.'
           errorType = 'insufficient_balance'
-          console.error('💰 [Payment API] Saldo insuficiente ou dados inválidos')
         } else if (apiResponse.status === 400) {
-          errorMessage = responseData.message || 'Dados inválidos. Verifique o número de telefone e tente novamente.'
-          errorType = 'invalid_data'
+          // Erro 400 = PIN não confirmado ou incorreto
+          errorMessage = 'PIN não confirmado. Por favor, confirme o pagamento no seu celular inserindo o PIN.'
+          errorType = 'pin_error'
         }
         
         return NextResponse.json(
@@ -336,7 +271,6 @@ export async function POST(request: NextRequest) {
             success: false,
             message: errorMessage,
             status: apiResponse.status,
-            details: process.env.NODE_ENV === 'development' ? responseData : undefined,
             error_type: errorType
           },
           { status: apiResponse.status }
@@ -345,17 +279,11 @@ export async function POST(request: NextRequest) {
     } catch (fetchError: any) {
       clearTimeout(timeoutId)
       
-      console.error('❌ [Payment API] Erro ao chamar API externa:', {
-        name: fetchError.name,
-        message: fetchError.message,
-        stack: fetchError.stack
-      })
-      
       if (fetchError.name === 'AbortError') {
         return NextResponse.json(
           { 
             success: false, 
-            message: 'Tempo de espera excedido. A API de pagamento não respondeu a tempo. Tente novamente.',
+            message: 'Tempo de espera excedido. Tente novamente.',
             error_type: 'timeout'
           },
           { status: 408 }
@@ -365,19 +293,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: fetchError.message || 'Erro ao conectar com a API de pagamento',
-          error_type: 'network_error',
-          details: process.env.NODE_ENV === 'development' ? fetchError.message : undefined
+          message: 'Erro ao conectar com a API de pagamento. Tente novamente.',
+          error_type: 'network_error'
         },
         { status: 500 }
       )
     }
   } catch (error: any) {
-    console.error('Erro ao processar pagamento:', error)
     return NextResponse.json(
       {
         success: false,
-        message: error.message || 'Erro ao processar pagamento',
+        message: 'Erro ao processar pagamento. Tente novamente.',
         status: 500,
       },
       { status: 500 }

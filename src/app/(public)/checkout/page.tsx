@@ -18,20 +18,20 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 const PLANS = {
   mensal: {
     name: "Mensal",
-    price: 800,
+    price: 1, // Preço de teste
     months: 1,
     period: "mês"
   },
   trimestral: {
     name: "Trimestral",
-    price: 2160, // 800 * 3 * 0.9
+    price: 1, // Preço de teste
     months: 3,
     period: "3 meses",
     savings: 240
   },
   anual: {
     name: "Anual",
-    price: 7680, // 800 * 12 * 0.8
+    price: 1, // Preço de teste
     months: 12,
     period: "ano",
     savings: 1920
@@ -131,8 +131,6 @@ export default function CheckoutPage() {
         return
       }
       
-      console.log('✅ [Checkout] Token obtido, enviando requisição de pagamento')
-
       // Mostrar popup de processamento
       setShowProcessingDialog(true)
 
@@ -173,18 +171,19 @@ export default function CheckoutPage() {
       } else {
         // Tratar erros específicos
         let errorTitle = "Erro no pagamento"
-        let errorMessage = data.message || "Ocorreu um erro ao processar o pagamento"
+        let errorMessage = "Ocorreu um erro ao processar o pagamento. Tente novamente."
         
         // Erro 422 = Saldo insuficiente
         if (response.status === 422 || data.error_type === 'insufficient_balance') {
           errorTitle = "Saldo insuficiente"
           errorMessage = "Você não tem saldo suficiente na sua conta M-Pesa/e-Mola. Por favor, recarregue sua conta e tente novamente."
+        } else if (response.status === 400 || data.error_type === 'pin_error') {
+          // Erro 400 = PIN incorreto ou não confirmado
+          errorTitle = "PIN não confirmado"
+          errorMessage = "O PIN não foi inserido ou foi cancelado. Por favor, tente novamente e confirme o pagamento no seu celular."
         } else if (response.status === 401 && data.error_type === 'token_expired') {
-          errorTitle = "Token expirado"
-          errorMessage = "O token de acesso expirou. Por favor, tente novamente mais tarde ou entre em contato com o suporte."
-        } else if (response.status === 400) {
-          errorTitle = "Dados inválidos"
-          errorMessage = data.message || "Verifique os dados informados e tente novamente."
+          errorTitle = "Erro de autenticação"
+          errorMessage = "Sua sessão expirou. Por favor, faça login novamente."
         }
 
         toast({
@@ -195,14 +194,12 @@ export default function CheckoutPage() {
         setLoading(false)
       }
     } catch (error: any) {
-      console.error('Erro ao processar pagamento:', error)
-      
       // Fechar popup de processamento em caso de erro
       setShowProcessingDialog(false)
       
       toast({
         title: "Erro",
-        description: error.message || "Ocorreu um erro ao processar o pagamento. Tente novamente.",
+        description: "Ocorreu um erro ao processar o pagamento. Tente novamente.",
         variant: "destructive"
       })
       setLoading(false)
