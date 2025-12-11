@@ -18,10 +18,11 @@ import { getCurrentUserSubscriptionWithPlan } from "@/lib/db/subscriptions"
 import { useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { User, Upload, X, Loader2 } from "lucide-react"
+import { User, Upload, X, Loader2, MessageSquare, Plus, Send } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useLocale } from "@/contexts/locale-context"
+import { SupportTicketsTab } from "./support-tickets-tab"
 import { MessageSquare, Plus, Loader2, Send } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -523,9 +524,9 @@ export default function AccountPage() {
                         <p className="text-sm text-muted-foreground">
                           {new Intl.NumberFormat(locale, { style: 'currency', currency }).format(currentSubscription.plan.price_monthly_cents / 100)}/mês
                         </p>
-                        {profile?.subscription_ends_at && (
+                        {(profile as any)?.subscription_ends_at && (
                           <p className="text-xs text-[#ff5a1f] mt-1 font-medium">
-                            Expira em: {new Date(profile.subscription_ends_at).toLocaleDateString('pt-BR', {
+                            Expira em: {new Date((profile as any).subscription_ends_at).toLocaleDateString('pt-BR', {
                               day: '2-digit',
                               month: 'long',
                               year: 'numeric'
