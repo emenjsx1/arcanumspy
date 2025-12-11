@@ -17,6 +17,7 @@ export interface PaymentSuccessEmailData {
   invoiceNumber?: string
   invoiceUrl?: string
   paymentDate: string
+  expiresAt?: string // Data de término do pacote
 }
 
 export interface SupportEmailData {
@@ -195,8 +196,21 @@ export function getPaymentSuccessEmail(data: PaymentSuccessEmailData): string {
                 ${data.invoiceNumber ? `
                 <tr>
                   <td style="padding: 22px; border-top: 1px solid #2a2a2a;">
-                    <p style="margin: 0; color: #808080; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Número da Nota Fiscal</p>
+                    <p style="margin: 0; color: #808080; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Número da Transação</p>
                     <p style="margin: 8px 0 0; color: #e5e5e5; font-size: 16px; font-weight: 600;">${data.invoiceNumber}</p>
+                  </td>
+                </tr>
+                ` : ''}
+                ${data.expiresAt ? `
+                <tr>
+                  <td style="padding: 22px; border-top: 1px solid #2a2a2a; background-color: #1a1a1a;">
+                    <p style="margin: 0; color: #808080; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">📅 Data de Término do Pacote</p>
+                    <p style="margin: 8px 0 0; color: #ff5a1f; font-size: 18px; font-weight: 700;">
+                      ${new Date(data.expiresAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    <p style="margin: 8px 0 0; color: #b3b3b3; font-size: 13px; line-height: 1.5;">
+                      Sua assinatura expira nesta data. Para continuar usando a plataforma, renove seu plano antes do término.
+                    </p>
                   </td>
                 </tr>
                 ` : ''}

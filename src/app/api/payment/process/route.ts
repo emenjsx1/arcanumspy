@@ -390,6 +390,7 @@ export async function POST(request: NextRequest) {
                 currency: 'MZN',
                 paymentDate: now.toISOString(),
                 invoiceNumber: transactionId,
+                expiresAt: expiresAt.toISOString(),
                 userEmail: profile.email,
               })
             } catch (emailLibError) {
