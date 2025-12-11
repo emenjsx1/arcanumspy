@@ -157,17 +157,23 @@ export default function AuthLayout({
     }
   }, [isAuthenticated, user, initialized])
 
-  // Redirecionar para checkout se não tem pagamento
+  // Verificar se subscription expirou e bloquear acesso imediatamente
   useEffect(() => {
     if (!checkingPayment && hasActivePayment === false && isAuthenticated && user && !redirecting) {
       const currentPath = window.location.pathname
       // Não redirecionar se já está no checkout
       if (!currentPath.includes('/checkout')) {
         setRedirecting(true)
+        toast({
+          title: "Assinatura Expirada",
+          description: "Sua assinatura expirou. Por favor, renove seu plano para continuar usando a plataforma.",
+          variant: "destructive",
+          duration: 5000
+        })
         router.push('/checkout?plan=mensal')
       }
     }
-  }, [hasActivePayment, checkingPayment, isAuthenticated, user, redirecting, router])
+  }, [hasActivePayment, checkingPayment, isAuthenticated, user, redirecting, router, toast])
   
   // CORREÇÃO: Mostrar loading apenas se ainda não inicializou E não passou o timeout de segurança
   // Se passou o timeout, sempre permitir renderização (mesmo que ainda esteja carregando)

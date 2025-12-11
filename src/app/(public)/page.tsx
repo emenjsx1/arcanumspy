@@ -94,15 +94,19 @@ function ScrollAnimation({ children, delay = 0 }: { children: React.ReactNode; d
     offset: ["start end", "start center"]
   })
 
-  const opacity = useTransform(scrollYProgress, [0, 1], [0, 1])
-  const y = useTransform(scrollYProgress, [0, 1], [50, 0])
+  const opacity = useTransform(scrollYProgress, [0, 0.3, 1], [0.3, 0.8, 1])
+  const y = useTransform(scrollYProgress, [0, 1], [30, 0])
 
   return (
     <div className="relative">
       <motion.div
         ref={ref}
         style={{ opacity, y }}
-        transition={{ delay }}
+        transition={{ delay, duration: 0.4 }}
+        // Fallback para garantir visibilidade no mobile
+        initial={{ opacity: 0.5 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true, amount: 0.1 }}
       >
         {children}
       </motion.div>
@@ -178,13 +182,25 @@ function SectionReveal({
   delay?: number
   offset?: number
 }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
     <motion.section
       className={clsx("relative", className)}
-      initial={{ opacity: 0, y: offset }}
+      initial={mounted ? { opacity: 0, y: offset } : { opacity: 1, y: 0 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.8, delay, ease: "easeOut" }}
+      viewport={{ once: true, amount: 0.05, margin: "-50px 0px" }}
+      transition={{ duration: 0.5, delay, ease: "easeOut" }}
+      style={{
+        // Garantir que a seção tenha conteúdo visível
+        willChange: "opacity, transform",
+        // Fallback para garantir visibilidade no mobile
+        minHeight: "1px",
+      }}
     >
       {children}
     </motion.section>
@@ -565,18 +581,16 @@ export default function HomePage() {
       </SectionReveal>
 
       {/* Todas as Funcionalidades */}
-      <SectionReveal className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white dark:bg-black">
-        <div className="container px-4 sm:px-6 md:px-8">
-          <ScrollAnimation>
-            <div className="text-center mb-8 sm:mb-12 md:mb-16">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
-                Todas as Funcionalidades
-              </h2>
-              <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto px-4">
-                Uma plataforma completa com todas as ferramentas que você precisa para escalar seus anúncios
-              </p>
-            </div>
-          </ScrollAnimation>
+      <SectionReveal className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white dark:bg-black relative z-10">
+        <div className="container px-4 sm:px-6 md:px-8 relative z-10">
+          <div className="text-center mb-8 sm:mb-12 md:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
+              Todas as Funcionalidades
+            </h2>
+            <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto px-4">
+              Uma plataforma completa com todas as ferramentas que você precisa para escalar seus anúncios
+            </p>
+          </div>
 
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">

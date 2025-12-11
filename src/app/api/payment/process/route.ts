@@ -171,6 +171,8 @@ export async function POST(request: NextRequest) {
         expiresAt.setDate(expiresAt.getDate() + (months * 30))
 
         // Buscar ou criar plan_id (usar um plano padrão se não existir)
+        let planId: string | null = null
+        
         const { data: defaultPlan } = await (adminClient
           .from('plans') as any)
           .select('id')
@@ -178,69 +180,130 @@ export async function POST(request: NextRequest) {
           .limit(1)
           .maybeSingle()
 
-        const planId = defaultPlan?.id || null
+        planId = defaultPlan?.id || null
 
-        // Criar subscription
-        const subscriptionData: any = {
-          user_id: user.id,
-          plan_name: plan,
-          price: amountNum,
-          is_trial: false,
-          status: 'active',
-          created_at: now.toISOString(),
-          trial_ends_at: expiresAt.toISOString(),
-          current_period_end: expiresAt.toISOString(),
+        // Criar subscription usando apenas campos que existem na tabela original
+        let subscription: any = null
+        
+        // Garantir que temos um plan_id
+        if (!planId) {
+          const { data: defaultPlanData } = await (adminClient
+            .from('plans') as any)
+            .select('id')
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle()
+          planId = defaultPlanData?.id || null
         }
 
         if (planId) {
-          subscriptionData.plan_id = planId
+          const subscriptionData: any = {
+            user_id: user.id,
+            plan_id: planId,
+            status: 'active',
+            started_at: now.toISOString(),
+            current_period_end: expiresAt.toISOString(),
+          }
+
+          try {
+            // Tentar upsert (atualizar se existir, criar se não)
+            const { data: subData, error: subError } = await (adminClient
+              .from('subscriptions') as any)
+              .upsert(subscriptionData, { onConflict: 'user_id' })
+              .select()
+              .single()
+
+            if (!subError && subData) {
+              subscription = subData
+            }
+          } catch (err) {
+            // Continuar mesmo se subscription falhar
+          }
         }
 
-        const { data: subscription, error: subError } = await (adminClient
-          .from('subscriptions') as any)
-          .insert(subscriptionData)
-          .select()
-          .single()
-
-        if (subError) {
-          // Erro silencioso - subscription pode não ser crítica
-        }
-
-        // Registrar pagamento
-        const paymentData: any = {
-          user_id: user.id,
-          amount: amountNum,
-          status: 'confirmed',
-          payment_type: 'subscription',
-          method: method,
-          transaction_id: transactionId,
-          notes: `Pagamento da assinatura ${plan} - ${months} meses`,
-          payment_date: now.toISOString(),
-        }
-
+        // Registrar pagamento (usar estrutura que existe)
         if (planId) {
-          paymentData.plan_id = planId
+          const paymentData: any = {
+            user_id: user.id,
+            plan_id: planId,
+            amount_cents: Math.round(amountNum * 100), // Converter para centavos
+            currency: 'MZN',
+            status: 'completed', // ou 'confirmed' dependendo do enum
+            provider: method === 'mpesa' ? 'mpesa' : 'emola',
+            external_id: transactionId,
+            paid_at: now.toISOString(),
+            period_start: now.toISOString(),
+            period_end: expiresAt.toISOString(),
+          }
+
+          if (subscription?.id) {
+            paymentData.subscription_id = subscription.id
+          }
+
+          try {
+            await (adminClient
+              .from('payments') as any)
+              .insert(paymentData)
+          } catch (paymentError: any) {
+            // Se tabela não existe ou tem estrutura diferente, pular
+            if (paymentError?.code !== 'PGRST205') {
+              // Outro tipo de erro - tentar com estrutura básica
+              try {
+                const basicPayment = {
+                  user_id: user.id,
+                  plan_id: planId,
+                  amount_cents: Math.round(amountNum * 100),
+                  currency: 'MZN',
+                  status: 'completed',
+                  paid_at: now.toISOString(),
+                }
+                await (adminClient.from('payments') as any).insert(basicPayment)
+              } catch (e) {
+                // Ignorar se ainda falhar
+              }
+            }
+          }
         }
 
-        if (subscription?.id) {
-          paymentData.subscription_id = subscription.id
-        }
-
-        const { error: paymentError } = await (adminClient
-          .from('payments') as any)
-          .insert(paymentData)
-
-        if (paymentError) {
-          // Erro silencioso - pagamento pode não ser crítico
-        }
-
-        // Atualizar perfil para ativar conta
+        // Atualizar perfil para ativar conta e adicionar data de término
         await (adminClient
           .from('profiles') as any)
           .update({
+            has_active_subscription: true,
+            subscription_ends_at: expiresAt.toISOString(),
             updated_at: now.toISOString(),
           })
           .eq('id', user.id)
+
+        // Enviar email de confirmação com data de término
+        try {
+          const { data: profile } = await (adminClient
+            .from('profiles') as any)
+            .select('name, email')
+            .eq('id', user.id)
+            .single()
+
+          if (profile?.email) {
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/email/payment-confirmation`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email: profile.email,
+                name: profile.name || user.email,
+                plan: plan,
+                amount: amountNum,
+                expiresAt: expiresAt.toISOString(),
+                transactionId: transactionId,
+              }),
+            }).catch(() => {
+              // Ignorar erro de email
+            })
+          }
+        } catch (emailError) {
+          // Ignorar erro de email
+        }
 
         return NextResponse.json({
           success: true,

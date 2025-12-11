@@ -53,12 +53,29 @@
   * {
     @apply border-border;
   }
+  html {
+    /* Prevenir zoom no mobile - manter proporção fixa */
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Prevenir callout no iOS que pode causar zoom */
+    -webkit-touch-callout: none;
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "kern" 1, "liga" 1;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevenir zoom no mobile - apenas pan */
+    touch-action: pan-x pan-y;
+    -webkit-tap-highlight-color: transparent;
+    /* Garantir que o body ocupe toda a altura */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    /* Prevenir zoom com gestos de pinça */
+    overscroll-behavior: none;
   }
   h1, h2, h3, h4, h5, h6, p, span, a, button {
     letter-spacing: normal;
