@@ -20,6 +20,7 @@ interface UserWithSubscription {
   phone_number?: string | null
   email?: string | null
   role: string
+  has_active_subscription?: boolean
   created_at: string
   subscription?: {
     plan?: {
@@ -101,11 +102,53 @@ export default function AdminUsersPage() {
     })
   }
 
-  const handleToggleStatus = (userId: string) => {
-    toast({
-      title: "Funcionalidade em desenvolvimento",
-      description: "Alteração de status será implementada em breve",
-    })
+  const handleToggleBlock = async (userId: string) => {
+    if (!confirm('Tem certeza que deseja bloquear este usuário? Ele precisará fazer um novo pagamento para ser desbloqueado.')) {
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        toast({
+          title: "Erro",
+          description: "Não autenticado",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const response = await fetch(`/api/admin/users/${userId}/block`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ blocked: true }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao bloquear usuário')
+      }
+
+      toast({
+        title: "Usuário bloqueado",
+        description: data.message || "O usuário foi bloqueado e precisará fazer um novo pagamento para acessar novamente.",
+      })
+
+      // Recarregar lista de usuários
+      loadUsers()
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível bloquear o usuário",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleChangeRole = async (userId: string, currentRole: string) => {
@@ -234,8 +277,10 @@ export default function AdminUsersPage() {
                           <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                             {user.role === 'admin' ? 'Admin' : 'Usuário'}
                           </Badge>
-                          <Badge variant="default">
-                            Ativo
+                          <Badge 
+                            variant={user.has_active_subscription ? 'default' : 'destructive'}
+                          >
+                            {user.has_active_subscription ? 'Ativo' : 'Bloqueado'}
                           </Badge>
                         </div>
                       </TableCell>
@@ -277,10 +322,24 @@ export default function AdminUsersPage() {
                             <DropdownMenuItem onClick={() => handleChangePlan(user.id)}>
                               Alterar plano
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleStatus(user.id)}>
-                              <Ban className="mr-2 h-4 w-4" />
-                              Desativar
-                            </DropdownMenuItem>
+                            {user.role !== 'admin' && (
+                              <>
+                                {user.has_active_subscription ? (
+                                  <DropdownMenuItem 
+                                    onClick={() => handleToggleBlock(user.id, false)}
+                                    className="text-red-600"
+                                  >
+                                    <Ban className="mr-2 h-4 w-4" />
+                                    Bloquear Usuário
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem disabled className="text-gray-500">
+                                    <Ban className="mr-2 h-4 w-4" />
+                                    Usuário Bloqueado (precisa pagar)
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

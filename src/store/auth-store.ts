@@ -242,7 +242,7 @@ export const useAuthStore = create<AuthState>()(
                   // Fazer logout
                   await supabase.auth.signOut()
                   set({ isLoading: false })
-                  throw new Error('Sua conta não está ativa. Por favor, faça o pagamento para acessar a plataforma.')
+                  throw new Error('Sua conta está bloqueada. Por favor, faça o pagamento para desbloquear e acessar a plataforma.')
                 }
               }
             }

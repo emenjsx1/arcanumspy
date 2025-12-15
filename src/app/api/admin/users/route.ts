@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       phone_number: user.phone_number || null,
       email: user.email || null,
       role: user.role,
+      has_active_subscription: user.has_active_subscription ?? true, // Default true se não existir
       created_at: user.created_at,
       subscription: user.subscription || null,
     }))
