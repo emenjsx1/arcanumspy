@@ -827,7 +827,7 @@ export default function HomePage() {
                 features: [
                   "Tudo do plano Mensal",
                   "20% de desconto",
-                  "Economia de 2.4 MT",
+                  "Economia de 1920 MT",
                   "Pagamento anual",
                   "Suporte prioritário",
                   "Acesso a recursos beta"

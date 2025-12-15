@@ -4,12 +4,15 @@
 -- ============================================
 
 -- Inserir planos Mensal, Trimestral e Anual (os que o sistema usa)
+-- NOTA: price_monthly_cents é o preço mensal equivalente em centavos
+-- Para Trimestral: 2160 MT = 216000 centavos (mas é pago de uma vez, não mensalmente)
+-- Para Anual: 7680 MT = 768000 centavos (mas é pago de uma vez, não mensalmente)
 INSERT INTO "public"."plans" 
   ("name", "slug", "description", "price_monthly_cents", "is_active", "created_at") 
 VALUES 
   ('Mensal', 'mensal', 'Plano mensal - 800 MT', 80000, true, NOW()),
-  ('Trimestral', 'trimestral', 'Plano trimestral - 2160 MT (10% desconto)', 72000, true, NOW()),
-  ('Anual', 'anual', 'Plano anual - 7680 MT (20% desconto)', 64000, true, NOW())
+  ('Trimestral', 'trimestral', 'Plano trimestral - 2160 MT (10% desconto)', 216000, true, NOW()),
+  ('Anual', 'anual', 'Plano anual - 7680 MT (20% desconto)', 768000, true, NOW())
 ON CONFLICT (slug) DO UPDATE
 SET 
   name = EXCLUDED.name,
