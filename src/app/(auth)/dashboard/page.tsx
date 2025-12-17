@@ -36,13 +36,24 @@ export default function DashboardPage() {
   const [dataLoaded, setDataLoaded] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(false)
 
-  // CORREÇÃO: useEffect com proteção contra múltiplas execuções
+  // CORREÇÃO: useEffect com proteção contra múltiplas execuções e timeout de segurança
   useEffect(() => {
     // Se já carregou os dados ou está carregando, não executar novamente
     if (dataLoaded || isLoadingData) return
     
-    // Se não tem usuário ainda, aguardar
-    if (!user) return
+    // CORREÇÃO: Se não tem usuário ainda, aguardar com timeout de segurança
+    if (!user) {
+      // Aguardar até 3 segundos para o usuário ser carregado
+      const timeout = setTimeout(() => {
+        const currentUser = useAuthStore.getState().user
+        if (!currentUser && !dataLoaded) {
+          console.warn('⚠️ [Dashboard] Usuário não encontrado após timeout')
+          setLoading(false)
+          setDataLoaded(true)
+        }
+      }, 3000)
+      return () => clearTimeout(timeout)
+    }
 
     const loadData = async () => {
       // Marcar como carregando para evitar execuções simultâneas

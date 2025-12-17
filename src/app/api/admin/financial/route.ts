@@ -65,8 +65,29 @@ export async function GET(request: NextRequest) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     startOfMonth.setHours(0, 0, 0, 0)
 
-    // Sistema baseado em planos - não há mais compras de créditos
-    // Buscar assinaturas e pagamentos de planos
+    // Buscar receita real da tabela payments (apenas pagamentos confirmados)
+    // Incluir tanto 'paid' quanto 'completed' na receita total
+    const { data: allPayments } = await adminClient
+      .from('payments')
+      .select('amount_cents, paid_at, created_at, status')
+      .in('status', ['paid', 'completed'])
+
+    // Receita total (todos os pagamentos confirmados)
+    const totalRevenue = (allPayments || []).reduce((sum: number, p: any) => {
+      return sum + (p.amount_cents || 0)
+    }, 0)
+
+    // Receita mensal (pagamentos confirmados deste mês)
+    const monthlyPayments = (allPayments || []).filter((p: any) => {
+      const paymentDate = new Date(p.paid_at || p.created_at)
+      return paymentDate >= startOfMonth
+    })
+
+    const monthlyRevenue = monthlyPayments.reduce((sum: number, p: any) => {
+      return sum + (p.amount_cents || 0)
+    }, 0)
+
+    // Buscar assinaturas para estatísticas
     const { data: subscriptions } = await adminClient
       .from('subscriptions')
       .select(`
@@ -76,20 +97,10 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(50)
 
-    // Calcular receita baseada em assinaturas
-    const totalRevenue = ((subscriptions || []) as any[]).reduce((sum, s: any) => {
-      // Receita baseada no plano (ajustar conforme necessário)
-      return sum + ((s.amount_cents || 0) / 100)
-    }, 0)
-
     const monthlySubscriptions = (subscriptions || []).filter((s: any) => {
       const subDate = new Date(s.created_at)
       return subDate >= startOfMonth
     })
-
-    const monthlyRevenue = monthlySubscriptions.reduce((sum, s: any) => {
-      return sum + (((s as any).amount_cents || 0) / 100)
-    }, 0)
 
     // Estatísticas de ferramentas (removido: voice cloning desabilitado)
     const totalVoices = { count: 0 }

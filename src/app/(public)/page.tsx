@@ -17,6 +17,7 @@ import {
   Star,
   Search,
   Sparkles,
+  Mic,
   Copy,
   BarChart3,
   Users,
@@ -26,23 +27,7 @@ import {
   Layers,
   PlayCircle,
   Target,
-  Eye,
-  BookOpen,
-  FolderTree,
-  Lock,
-  Settings,
-  CheckSquare,
-  Timer,
-  Trophy,
-  Wallet,
-  StickyNote,
-  MessageSquare,
-  Brain,
-  Image as ImageIcon,
-  FileAudio,
-  Link as LinkIcon,
-  EyeOff,
-  CheckCircle2
+  Eye
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
@@ -79,7 +64,7 @@ function FloatingIcons() {
             ease: "easeInOut",
           }}
         >
-          <Icon className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 text-[#ff5a1f]" />
+          <Icon className="w-16 h-16 md:w-20 md:h-20 text-[#ff5a1f]" />
         </motion.div>
       ))}
     </div>
@@ -88,15 +73,25 @@ function FloatingIcons() {
 
 // Componente de animação ao scroll
 function ScrollAnimation({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "start center"]
+  })
+
+  const opacity = useTransform(scrollYProgress, [0, 1], [0, 1])
+  const y = useTransform(scrollYProgress, [0, 1], [50, 0])
+
   return (
-    <motion.div
-      initial={{ opacity: 1, y: 0 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.1 }}
-      transition={{ delay, duration: 0.3 }}
-    >
-      {children}
-    </motion.div>
+    <div className="relative">
+      <motion.div
+        ref={ref}
+        style={{ opacity, y }}
+        transition={{ delay }}
+      >
+        {children}
+      </motion.div>
+    </div>
   )
 }
 
@@ -171,10 +166,10 @@ function SectionReveal({
   return (
     <motion.section
       className={clsx("relative", className)}
-      initial={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: offset }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.01 }}
-      transition={{ duration: 0.3, delay, ease: "easeOut" }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.8, delay, ease: "easeOut" }}
     >
       {children}
     </motion.section>
@@ -191,138 +186,130 @@ export default function HomePage() {
   return (
     <div className="flex flex-col bg-[#f9f9f9] dark:bg-black">
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-white dark:bg-black" style={{ backgroundColor: 'var(--background)' }}>
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-white dark:bg-black">
         <MotionGrid />
         <MotionBlobs />
         <FloatingIcons />
         
-        <div className="container relative z-20 px-4 sm:px-6 md:px-16 lg:px-20 xl:px-24 py-16 sm:py-20 md:py-32">
-          <div
-            className="max-w-[1100px] mx-auto text-center space-y-6 sm:space-y-8 md:space-y-10 relative z-30"
-            style={{ opacity: 1, zIndex: 30 }}
+        <div className="container relative z-10 px-10 md:px-16 lg:px-20 xl:px-24 py-32">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="max-w-[1100px] mx-auto text-center space-y-10"
           >
             {/* Badge */}
-            <div style={{ opacity: 1, zIndex: 30 }}>
-              <Badge className="bg-[#ff5a1f]/10 text-[#ff5a1f] border-[#ff5a1f]/20 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium relative z-30">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+            >
+              <Badge className="bg-[#ff5a1f]/10 text-[#ff5a1f] border-[#ff5a1f]/20 px-4 py-1.5 rounded-full text-sm font-medium">
                 Plataforma Completa de Marketing e IA
               </Badge>
-            </div>
+            </motion.div>
 
             {/* Título */}
             <h1
-              className="text-2xl leading-tight sm:text-3xl sm:leading-snug md:text-4xl md:leading-[1.2] lg:text-5xl xl:text-6xl font-bold tracking-tight mx-auto px-2 sm:px-4 relative z-30"
-              style={{ 
-                color: 'white',
-                zIndex: 30,
-                textShadow: '0 2px 4px rgba(0,0,0,0.5)'
-              }}
+              className="text-[1.8rem] leading-[1.3] sm:text-4xl sm:leading-[1.2] md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-[-0.02em] text-[#0b0c10] dark:text-white mx-auto px-3 sm:px-4 md:px-8 lg:px-12"
+              style={{ letterSpacing: '-0.02em', wordSpacing: '0.06em' }}
             >
-              <span className="block mb-1">Escale seus{" "}
-              <span className="text-[#ff5a1f]" style={{ color: '#ff5a1f' }}>anúncios</span>{" "}com ofertas e criativos</span>
+              <span className="block">Escale seus{" "}
+              <span className="text-[#ff5a1f]">anúncios</span>{" "}com ofertas e criativos</span>
               <span className="block">que{" "}
-              <span className="text-[#ff5a1f]" style={{ color: '#ff5a1f' }}>realmente convertem</span></span>
+              <span className="text-[#ff5a1f]">realmente convertem</span></span>
             </h1>
 
             {/* Subtítulo */}
-            <p 
-              className="text-sm sm:text-base md:text-lg lg:text-xl max-w-[900px] mx-auto leading-relaxed px-4 sm:px-6 md:px-8 font-light relative z-30" 
-              style={{ 
-                color: 'rgba(255, 255, 255, 0.9)',
-                zIndex: 30,
-                textShadow: '0 1px 2px rgba(0,0,0,0.5)'
-              }}
-            >
-              Acesse milhares de ofertas escaladas, gere copy profissional e monitore criativos que estão dominando o mercado de resposta direta.
+            <p className="text-base sm:text-xl md:text-xl lg:text-2xl text-[#6b6b6b] dark:text-gray-400 max-w-[900px] mx-auto leading-relaxed px-4 md:px-8 lg:px-12 font-light">
+              Acesse milhares de ofertas escaladas, crie vozes IA, gere copy profissional e monitore criativos que estão dominando o mercado de resposta direta.
             </p>
             
-            {/* Badge de Funcionalidades */}
-            <div className="relative bg-gradient-to-r from-[#ff5a1f]/10 via-[#ff5a1f]/5 to-[#ff5a1f]/10 dark:from-[#ff5a1f]/20 dark:via-[#ff5a1f]/10 dark:to-[#ff5a1f]/20 border border-[#ff5a1f]/20 dark:border-[#ff5a1f]/30 rounded-xl p-4 sm:p-5 md:p-6 max-w-[900px] mx-auto overflow-hidden relative z-30">
+            {/* Explicação sobre Créditos */}
+            <div className="relative bg-[#ff5a1f]/10 dark:bg-[#ff5a1f]/20 border border-[#ff5a1f]/20 dark:border-[#ff5a1f]/30 rounded-xl p-6 max-w-[900px] mx-auto overflow-hidden">
               <motion.div
                 className="absolute inset-0 opacity-40 bg-gradient-to-r from-transparent via-white/30 to-transparent dark:via-white/10"
                 animate={{ x: ["-100%", "100%"] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
               />
-              <p className="text-xs sm:text-sm md:text-base text-[#0b0c10] dark:text-white font-medium leading-relaxed">
-                🚀 <strong>Plataforma Completa:</strong> Acesse todas as ferramentas de marketing, IA, espionagem e produtividade em um único lugar. Tudo que você precisa para escalar seus anúncios.
+              <p className="text-sm md:text-base text-[#0b0c10] dark:text-white font-medium">
+                💳 <strong>Sistema de Créditos:</strong> Use créditos para acessar ofertas, gerar vozes IA e criar copy profissional. Compre apenas o que você precisa, quando precisar.
               </p>
             </div>
 
             {/* Botões */}
-            <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row justify-center items-stretch sm:items-center pt-4 sm:pt-6 px-4 sm:px-6 md:px-8">
-              <Link href="/signup" className="w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-6 px-4 md:px-8 lg:px-12">
+              <Link href="/signup">
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="relative group w-full"
+                  className="relative group"
                 >
                   <motion.div
-                    className="absolute -inset-[2px] rounded-full bg-gradient-to-r from-[#ff5a1f] via-[#ff7a1f] to-[#ff1fbf] opacity-70 blur-md hidden sm:block"
+                    className="absolute -inset-[2px] rounded-full bg-gradient-to-r from-[#ff5a1f] via-[#ff7a1f] to-[#ff1fbf] opacity-70 blur-md"
                     animate={{ opacity: [0.3, 0.8, 0.3], scale: [0.98, 1.02, 0.98] }}
                     transition={{ duration: 3, repeat: Infinity }}
                   />
                   <Button 
                     size="lg" 
-                    className="relative w-full sm:w-auto bg-[#ff5a1f] hover:bg-[#ff4d29] text-white rounded-full px-6 py-5 sm:px-8 sm:py-6 text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+                    className="relative bg-[#ff5a1f] hover:bg-[#ff4d29] text-white rounded-full px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
                   >
                     Começar Agora – Grátis
-                    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+                    <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </motion.div>
               </Link>
-              <Link href="/about" className="w-full sm:w-auto">
+              <Link href="/pricing">
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="w-full"
                 >
                   <Button 
                     size="lg" 
                     variant="outline"
-                    className="w-full sm:w-auto border-2 border-[#0b0c10] dark:border-white text-[#0b0c10] dark:text-white hover:bg-[#0b0c10] dark:hover:bg-white hover:text-white dark:hover:text-[#0b0c10] rounded-full px-6 py-5 sm:px-8 sm:py-6 text-base sm:text-lg font-semibold transition-all"
+                    className="border-2 border-[#0b0c10] dark:border-white text-[#0b0c10] dark:text-white hover:bg-[#0b0c10] dark:hover:bg-white hover:text-white dark:hover:text-[#0b0c10] rounded-full px-8 py-6 text-lg font-semibold transition-all"
                   >
-                    Conhecer Funcionalidades
+                    Ver Créditos
                   </Button>
                 </motion.div>
               </Link>
             </div>
 
             {/* Prova Social */}
-            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 md:gap-6 pt-6 sm:pt-8 md:pt-10 text-xs sm:text-sm md:text-base text-[#6b6b6b] dark:text-gray-400 px-4">
+            <div className="flex flex-wrap items-center justify-center gap-6 pt-10 text-sm md:text-base text-[#6b6b6b] dark:text-gray-400 px-4 md:px-8 lg:px-12">
               <div className="flex items-center gap-2">
-                <Star className="h-3 w-3 sm:h-4 sm:w-4 fill-[#ff5a1f] text-[#ff5a1f]" />
+                <Star className="h-4 w-4 fill-[#ff5a1f] text-[#ff5a1f]" />
                 <span className="font-semibold text-[#0b0c10] dark:text-white">4,9/5</span>
-                <span className="hidden sm:inline">de 500+ usuários</span>
-                <span className="sm:hidden">500+ usuários</span>
+                <span>de 500+ usuários</span>
               </div>
               <div className="flex items-center gap-2">
-                <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">+1000 ofertas cadastradas</span>
-                <span className="sm:hidden">+1000 ofertas</span>
+                <Users className="h-4 w-4" />
+                <span>+1000 ofertas cadastradas</span>
               </div>
               <div className="flex items-center gap-2">
-                <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
+                <Zap className="h-4 w-4" />
                 <span>Atualização diária</span>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Seção de Benefícios */}
-      <SectionReveal className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white dark:bg-black">
-        <div className="container px-4 sm:px-6 md:px-8">
+      <SectionReveal className="py-24 bg-white dark:bg-black">
+        <div className="container px-4 md:px-6">
           <ScrollAnimation>
-            <div className="text-center mb-8 sm:mb-12 md:mb-16">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
-                Por que usar o ArcanumSpy?
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-[#0b0c10] dark:text-white mb-4">
+                Por que usar o SwipeVault Pro?
               </h2>
-              <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto px-4">
+              <p className="text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto">
                 Tudo que você precisa para escalar seus anúncios em uma única plataforma
               </p>
             </div>
           </ScrollAnimation>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
             {[
               {
                 icon: Search,
@@ -337,7 +324,7 @@ export default function HomePage() {
               {
                 icon: Zap,
                 title: "IA Avançada",
-                description: "Gere copy profissional usando inteligência artificial de ponta."
+                description: "Crie vozes clonadas e gere copy profissional usando inteligência artificial de ponta."
               },
               {
                 icon: BarChart3,
@@ -350,14 +337,14 @@ export default function HomePage() {
                   whileHover={{ scale: 1.05, y: -5 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Card className="bg-white dark:bg-black border-0 shadow-md hover:shadow-xl transition-all rounded-xl sm:rounded-2xl p-5 sm:p-6 md:p-8 h-full">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 rounded-xl bg-[#ff5a1f]/10 dark:bg-[#ff5a1f]/20 flex items-center justify-center mb-4 sm:mb-5 md:mb-6">
-                      <benefit.icon className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-[#ff5a1f]" />
+                  <Card className="bg-white dark:bg-black border-0 shadow-md hover:shadow-xl transition-all rounded-2xl p-8 h-full">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#ff5a1f]/10 dark:bg-[#ff5a1f]/20 flex items-center justify-center mb-6">
+                      <benefit.icon className="w-6 h-6 sm:w-8 sm:h-8 text-[#ff5a1f]" />
                     </div>
-                    <h3 className="text-base sm:text-lg md:text-xl font-bold text-[#0b0c10] dark:text-white mb-2 sm:mb-3">
+                    <h3 className="text-lg sm:text-xl font-bold text-[#0b0c10] dark:text-white mb-3">
                       {benefit.title}
                     </h3>
-                    <p className="text-xs sm:text-sm md:text-base text-[#6b6b6b] dark:text-gray-400 leading-relaxed">
+                    <p className="text-sm sm:text-base text-[#6b6b6b] dark:text-gray-400 leading-relaxed">
                       {benefit.description}
                     </p>
                   </Card>
@@ -369,20 +356,20 @@ export default function HomePage() {
       </SectionReveal>
 
       {/* Seção de Funcionalidades */}
-      <SectionReveal className="py-12 sm:py-16 md:py-20 lg:py-24 bg-[#f9f9f9] dark:bg-black">
-        <div className="container px-4 sm:px-6 md:px-8">
+      <SectionReveal className="py-24 bg-[#f9f9f9] dark:bg-black">
+        <div className="container px-4 md:px-6">
           <ScrollAnimation>
-            <div className="text-center mb-8 sm:mb-12 md:mb-16">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-[#0b0c10] dark:text-white mb-4">
                 Funcionalidades do Produto
               </h2>
-              <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto px-4">
+              <p className="text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto">
                 Uma plataforma completa com todas as ferramentas que você precisa
               </p>
             </div>
           </ScrollAnimation>
 
-          <div className="space-y-12 sm:space-y-16 md:space-y-20 lg:space-y-24 max-w-5xl mx-auto">
+          <div className="space-y-24 max-w-5xl mx-auto">
             {[
               {
                 icon: Search,
@@ -403,6 +390,12 @@ export default function HomePage() {
                 color: "bg-orange-50"
               },
               {
+                icon: Mic,
+                title: "IA de Voz",
+                description: "Clone sua voz ou de um narrador profissional e gere narrações para VSL, anúncios, TikTok, YouTube e muito mais. Processamento rápido com qualidade profissional.",
+                color: "bg-green-50"
+              },
+              {
                 icon: Layers,
                 title: "Monitoramento e Organização",
                 description: "Organize suas ofertas favoritas, acompanhe performance em tempo real e identifique oportunidades de escalar. Templates prontos e transcrições automáticas de VSLs.",
@@ -410,21 +403,21 @@ export default function HomePage() {
               }
             ].map((feature, index) => (
               <ScrollAnimation key={index} delay={index * 0.1}>
-                <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 items-center ${index % 2 === 1 ? 'md:flex-row-reverse' : ''}`}>
+                <div className={`grid grid-cols-1 md:grid-cols-2 gap-12 items-center ${index % 2 === 1 ? 'md:flex-row-reverse' : ''}`}>
                   <div className={index % 2 === 1 ? 'md:order-2' : ''}>
-                    <div className={`w-12 h-12 sm:w-14 sm:h-14 md:w-20 md:h-20 rounded-xl sm:rounded-2xl ${feature.color} flex items-center justify-center mb-4 sm:mb-5 md:mb-6`}>
-                      <feature.icon className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 text-[#ff5a1f]" />
+                    <div className={`w-14 h-14 sm:w-20 sm:h-20 rounded-2xl ${feature.color} flex items-center justify-center mb-6`}>
+                      <feature.icon className="w-8 h-8 sm:w-10 sm:h-10 text-[#ff5a1f]" />
                     </div>
-                    <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
+                    <h3 className="text-2xl md:text-4xl font-bold text-[#0b0c10] dark:text-white mb-4">
                       {feature.title}
                     </h3>
-                    <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 leading-relaxed">
+                    <p className="text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 leading-relaxed">
                       {feature.description}
                     </p>
                   </div>
                   <div className={index % 2 === 1 ? 'md:order-1' : ''}>
-                    <div className="aspect-video bg-gradient-to-br from-[#ff5a1f]/10 to-[#ff5a1f]/5 rounded-xl sm:rounded-2xl border border-[#ff5a1f]/20 flex items-center justify-center">
-                      <feature.icon className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 text-[#ff5a1f]/30" />
+                    <div className="aspect-video bg-gradient-to-br from-[#ff5a1f]/10 to-[#ff5a1f]/5 rounded-2xl border border-[#ff5a1f]/20 flex items-center justify-center">
+                      <feature.icon className="w-24 h-24 text-[#ff5a1f]/30" />
                     </div>
                   </div>
                 </div>
@@ -435,20 +428,20 @@ export default function HomePage() {
       </SectionReveal>
 
       {/* Como Funciona */}
-      <SectionReveal className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white dark:bg-black">
-        <div className="container px-4 sm:px-6 md:px-8">
+      <SectionReveal className="py-24 bg-white dark:bg-black">
+        <div className="container px-4 md:px-6">
           <ScrollAnimation>
-            <div className="text-center mb-8 sm:mb-12 md:mb-16">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-[#0b0c10] dark:text-white mb-4">
                 Como Funciona
               </h2>
-              <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto px-4">
+              <p className="text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto">
                 Escale seus anúncios em 3 passos simples
               </p>
             </div>
           </ScrollAnimation>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-10 md:gap-12 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-5xl mx-auto">
             {[
               {
                 number: "1",
@@ -466,22 +459,22 @@ export default function HomePage() {
                 number: "3",
                 icon: Target,
                 title: "Implemente nas suas campanhas",
-                description: "Use as ferramentas de IA para criar copy, adapte as ofertas para seu mercado e comece a escalar."
+                description: "Use as ferramentas de IA para criar vozes e copy, adapte as ofertas para seu mercado e comece a escalar."
               }
             ].map((step, index) => (
               <ScrollAnimation key={index} delay={index * 0.1}>
                 <div className="text-center">
-                  <div className="relative mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#ff5a1f]/10 flex items-center justify-center mb-4 sm:mb-6">
+                  <div className="relative mx-auto w-20 h-20 rounded-full bg-[#ff5a1f]/10 flex items-center justify-center mb-6">
                     <div className="absolute inset-0 bg-[#ff5a1f]/20 blur-xl rounded-full"></div>
-                    <div className="relative text-2xl sm:text-3xl md:text-4xl font-bold text-[#ff5a1f]">{step.number}</div>
+                    <div className="relative text-3xl sm:text-4xl font-bold text-[#ff5a1f]">{step.number}</div>
                   </div>
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 rounded-xl bg-[#ff5a1f]/10 flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                    <step.icon className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-[#ff5a1f]" />
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#ff5a1f]/10 flex items-center justify-center mx-auto mb-4">
+                    <step.icon className="w-6 h-6 sm:w-8 sm:h-8 text-[#ff5a1f]" />
                   </div>
-                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-[#0b0c10] dark:text-white mb-2 sm:mb-3">
+                  <h3 className="text-lg sm:text-xl font-bold text-[#0b0c10] dark:text-white mb-3">
                     {step.title}
                   </h3>
-                  <p className="text-xs sm:text-sm md:text-base text-[#6b6b6b] dark:text-gray-400 leading-relaxed px-2">
+                  <p className="text-sm sm:text-base text-[#6b6b6b] dark:text-gray-400 leading-relaxed">
                     {step.description}
                   </p>
                 </div>
@@ -492,23 +485,23 @@ export default function HomePage() {
       </SectionReveal>
 
       {/* Depoimentos */}
-      <SectionReveal className="py-12 sm:py-16 md:py-20 lg:py-24 bg-[#f9f9f9] dark:bg-black">
-        <div className="container px-4 sm:px-6 md:px-8">
+      <SectionReveal className="py-24 bg-[#f9f9f9] dark:bg-black">
+        <div className="container px-4 md:px-6">
           <ScrollAnimation>
-            <div className="text-center mb-8 sm:mb-12 md:mb-16">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-[#0b0c10] dark:text-white mb-4">
                 O que nossos usuários dizem
               </h2>
             </div>
           </ScrollAnimation>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {[
               {
                 name: "Maria Silva",
                 role: "Afiliada",
                 avatar: "MS",
-                text: "Consegui escalar minhas campanhas em 3x usando as ofertas e criativos da plataforma."
+                text: "Consegui escalar minhas campanhas em 3x usando as ofertas e criativos da plataforma. A IA de voz economizou horas do meu tempo."
               },
               {
                 name: "João Santos",
@@ -528,22 +521,22 @@ export default function HomePage() {
                   whileHover={{ scale: 1.02, y: -5 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Card className="bg-white dark:bg-black border-0 shadow-md hover:shadow-xl transition-all rounded-xl sm:rounded-2xl p-5 sm:p-6 md:p-8 h-full">
-                    <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-5 md:mb-6">
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-[#ff5a1f]/10 dark:bg-[#ff5a1f]/20 flex items-center justify-center text-[#ff5a1f] font-bold text-base sm:text-lg flex-shrink-0">
+                  <Card className="bg-white dark:bg-black border-0 shadow-md hover:shadow-xl transition-all rounded-2xl p-8 h-full">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-16 h-16 rounded-full bg-[#ff5a1f]/10 dark:bg-[#ff5a1f]/20 flex items-center justify-center text-[#ff5a1f] font-bold text-lg">
                         {testimonial.avatar}
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="font-bold text-sm sm:text-base text-[#0b0c10] dark:text-white truncate">{testimonial.name}</h4>
-                        <p className="text-xs sm:text-sm text-[#6b6b6b] dark:text-gray-400">{testimonial.role}</p>
+                      <div>
+                        <h4 className="font-bold text-[#0b0c10] dark:text-white">{testimonial.name}</h4>
+                        <p className="text-sm text-[#6b6b6b] dark:text-gray-400">{testimonial.role}</p>
                       </div>
                     </div>
-                    <div className="flex gap-1 mb-3 sm:mb-4">
+                    <div className="flex gap-1 mb-4">
                       {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-3 h-3 sm:w-4 sm:h-4 fill-[#ff5a1f] text-[#ff5a1f]" />
+                        <Star key={i} className="w-4 h-4 fill-[#ff5a1f] text-[#ff5a1f]" />
                       ))}
                     </div>
-                    <p className="text-xs sm:text-sm md:text-base text-[#6b6b6b] dark:text-gray-400 leading-relaxed">
+                    <p className="text-[#6b6b6b] dark:text-gray-400 leading-relaxed">
                       &quot;{testimonial.text}&quot;
                     </p>
                   </Card>
@@ -554,216 +547,75 @@ export default function HomePage() {
         </div>
       </SectionReveal>
 
-      {/* Todas as Funcionalidades */}
-      <SectionReveal className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white dark:bg-black relative z-10">
-        <div className="container px-4 sm:px-6 md:px-8 relative z-10">
-          <div className="text-center mb-8 sm:mb-12 md:mb-16">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
-              Todas as Funcionalidades
-            </h2>
-            <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto px-4">
-              Uma plataforma completa com todas as ferramentas que você precisa para escalar seus anúncios
-            </p>
-          </div>
+      {/* Sistema de Créditos */}
+      <SectionReveal className="py-24 bg-white dark:bg-black">
+        <div className="container px-4 md:px-6">
+          <ScrollAnimation>
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-[#0b0c10] dark:text-white mb-4">
+                Sistema de Créditos
+              </h2>
+              <p className="text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto">
+                Use créditos para acessar todas as funcionalidades. Pague apenas pelo que usar.
+              </p>
+            </div>
+          </ScrollAnimation>
 
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               {[
                 {
-                  icon: Search,
-                  title: "Biblioteca de Ofertas",
-                  description: "Acesse milhares de ofertas escaladas com análise completa de performance",
-                  category: "Conteúdo"
+                  icon: Eye,
+                  title: "Visualizar Ofertas",
+                  credits: "1 crédito",
+                  description: "Por cada oferta visualizada pela primeira vez"
                 },
                 {
-                  icon: Video,
-                  title: "Criativos de Anúncios",
-                  description: "Monitore criativos vencedores do Facebook, Instagram e TikTok",
-                  category: "Espionagem"
+                  icon: Mic,
+                  title: "Gerar Voz IA",
+                  credits: "5 créditos/min",
+                  description: "Proporcional à duração do áudio gerado"
                 },
                 {
                   icon: Copy,
-                  title: "Gerador de Copy IA",
-                  description: "Crie copy profissional com modelos AIDA, PAS, Storytelling e mais",
-                  category: "Inteligência Artificial"
-                },
-                {
-                  icon: Brain,
-                  title: "Criador Criativo IA",
-                  description: "Gere criativos profissionais usando inteligência artificial",
-                  category: "Inteligência Artificial"
-                },
-                {
-                  icon: ImageIcon,
-                  title: "Remover Background",
-                  description: "Remova fundos de imagens automaticamente com IA",
-                  category: "Inteligência Artificial"
-                },
-                {
-                  icon: ImageIcon,
-                  title: "Upscale de Imagens",
-                  description: "Aumente a resolução de imagens mantendo qualidade",
-                  category: "Inteligência Artificial"
-                },
-                {
-                  icon: FileAudio,
-                  title: "Transcrever Áudio",
-                  description: "Converta áudio em texto automaticamente",
-                  category: "Inteligência Artificial"
-                },
-                {
-                  icon: Globe,
-                  title: "Espião de Domínios",
-                  description: "Descubra URLs ativas e páginas ocultas de qualquer domínio",
-                  category: "Espionagem"
-                },
-                {
-                  icon: TrendingUp,
-                  title: "Ofertas Escaladas",
-                  description: "Acompanhe ofertas que estão realmente escalando no mercado",
-                  category: "Espionagem"
-                },
-                {
-                  icon: FolderTree,
-                  title: "Organizador de Biblioteca",
-                  description: "Organize suas ofertas e criativos em pastas personalizadas",
-                  category: "Espionagem"
-                },
-                {
-                  icon: CheckCircle2,
-                  title: "Validador de Criativo",
-                  description: "Valide e analise a qualidade dos seus criativos",
-                  category: "Ferramentas"
-                },
-                {
-                  icon: TrendingUp,
-                  title: "Otimizador de Campanha",
-                  description: "Otimize suas campanhas de anúncios para melhor performance",
-                  category: "Ferramentas"
-                },
-                {
-                  icon: EyeOff,
-                  title: "Mascarar Criativo",
-                  description: "Mascare criativos para evitar detecção de plataformas",
-                  category: "Ferramentas"
-                },
-                {
-                  icon: Eye,
-                  title: "Esconder Criativo",
-                  description: "Oculte criativos de forma inteligente",
-                  category: "Ferramentas"
-                },
-                {
-                  icon: Lock,
-                  title: "Criptografar Texto",
-                  description: "Criptografe e descriptografe textos com segurança",
-                  category: "Ferramentas"
-                },
-                {
-                  icon: CheckSquare,
-                  title: "Sistema de Tarefas",
-                  description: "Organize tarefas em listas estilo Kanban/Trello",
-                  category: "Produtividade"
-                },
-                {
-                  icon: Timer,
-                  title: "Cronômetro Pomodoro",
-                  description: "Gerencie seu tempo com técnica Pomodoro",
-                  category: "Produtividade"
-                },
-                {
-                  icon: Trophy,
-                  title: "Metas e Objetivos",
-                  description: "Defina e acompanhe suas metas de negócio",
-                  category: "Produtividade"
-                },
-                {
-                  icon: Wallet,
-                  title: "Controle Financeiro",
-                  description: "Gerencie receitas, despesas e acompanhe seu financeiro",
-                  category: "Produtividade"
-                },
-                {
-                  icon: StickyNote,
-                  title: "Anotações",
-                  description: "Crie anotações coloridas e organizadas",
-                  category: "Produtividade"
-                },
-                {
-                  icon: BookOpen,
-                  title: "Cursos e Aulas",
-                  description: "Acesse cursos completos e acompanhe seu progresso",
-                  category: "Conteúdo"
-                },
-                {
-                  icon: PlayCircle,
-                  title: "Calls Gravadas",
-                  description: "Acesse gravações de calls e mentorias",
-                  category: "Conteúdo"
-                },
-                {
-                  icon: Target,
-                  title: "Mapa do Iniciante",
-                  description: "Visualize seu progresso e continue sua jornada",
-                  category: "Conteúdo"
-                },
-                {
-                  icon: MessageSquare,
-                  title: "Comunidade",
-                  description: "Conecte-se com outros afiliados e compartilhe estratégias",
-                  category: "Comunidade"
-                },
-                {
-                  icon: LinkIcon,
-                  title: "Links Úteis",
-                  description: "Acesse recursos, mentorias e canais exclusivos",
-                  category: "Recursos"
+                  title: "Gerar Copy",
+                  credits: "5 créditos",
+                  description: "Por cada geração de copy profissional"
                 }
-              ].map((feature, index) => (
-                <ScrollAnimation key={index} delay={index * 0.05}>
-                  <motion.div
-                    whileHover={{ scale: 1.02, y: -5 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Card className="bg-white dark:bg-black border-2 border-gray-200 dark:border-gray-800 shadow-md hover:shadow-xl transition-all rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 h-full">
-                      <div className="flex items-start gap-3 sm:gap-4">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-[#ff5a1f]/10 dark:bg-[#ff5a1f]/20 flex items-center justify-center flex-shrink-0">
-                          <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 text-[#ff5a1f]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
-                            <h3 className="text-sm sm:text-base md:text-lg font-bold text-[#0b0c10] dark:text-white">
-                              {feature.title}
-                            </h3>
-                            <Badge variant="outline" className="text-[10px] sm:text-xs w-fit">
-                              {feature.category}
-                            </Badge>
-                          </div>
-                          <p className="text-xs sm:text-sm text-[#6b6b6b] dark:text-gray-400 leading-relaxed">
-                            {feature.description}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  </motion.div>
+              ].map((item, index) => (
+                <ScrollAnimation key={index} delay={index * 0.1}>
+                  <Card className="bg-white dark:bg-black border-2 border-gray-200 dark:border-gray-800 shadow-md hover:shadow-xl transition-all rounded-2xl p-6 text-center">
+                    <div className="w-16 h-16 rounded-xl bg-[#ff5a1f]/10 dark:bg-[#ff5a1f]/20 flex items-center justify-center mx-auto mb-4">
+                      <item.icon className="w-8 h-8 text-[#ff5a1f]" />
+                    </div>
+                    <h3 className="text-xl font-bold text-[#0b0c10] dark:text-white mb-2">
+                      {item.title}
+                    </h3>
+                    <div className="text-2xl font-bold text-[#ff5a1f] mb-2">
+                      {item.credits}
+                    </div>
+                    <p className="text-sm text-[#6b6b6b] dark:text-gray-400">
+                      {item.description}
+                    </p>
+                  </Card>
                 </ScrollAnimation>
               ))}
             </div>
             
-            <div className="mt-8 sm:mt-10 md:mt-12 bg-gradient-to-r from-[#ff5a1f]/10 via-[#ff5a1f]/5 to-[#ff5a1f]/10 dark:from-[#ff5a1f]/20 dark:via-[#ff5a1f]/10 dark:to-[#ff5a1f]/20 border border-[#ff5a1f]/20 dark:border-[#ff5a1f]/30 rounded-xl sm:rounded-2xl p-5 sm:p-6 md:p-8 text-center">
-              <h3 className="text-xl sm:text-2xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
-                Plataforma Completa
+            <div className="bg-[#ff5a1f]/10 dark:bg-[#ff5a1f]/20 border border-[#ff5a1f]/20 dark:border-[#ff5a1f]/30 rounded-2xl p-8 text-center">
+              <h3 className="text-2xl font-bold text-[#0b0c10] dark:text-white mb-4">
+                Como Funciona?
               </h3>
-              <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 mb-4 sm:mb-5 md:mb-6 max-w-2xl mx-auto px-2">
-                Todas essas funcionalidades estão disponíveis em uma única plataforma. Não precisa de múltiplas ferramentas - tudo que você precisa está aqui.
+              <p className="text-lg text-[#6b6b6b] dark:text-gray-400 mb-6 max-w-2xl mx-auto">
+                Compre créditos quando precisar e use conforme sua necessidade. Não há mensalidades fixas - você paga apenas pelo que usar. Os créditos não expiram e você pode comprar mais a qualquer momento.
               </p>
-              <Link href="/signup" className="inline-block">
+              <Link href="/pricing">
                 <Button 
                   size="lg"
-                  className="bg-[#ff5a1f] hover:bg-[#ff4d29] text-white rounded-full px-6 py-5 sm:px-8 sm:py-6 text-base sm:text-lg font-semibold w-full sm:w-auto"
+                  className="bg-[#ff5a1f] hover:bg-[#ff4d29] text-white rounded-full px-8 py-6 text-lg font-semibold"
                 >
-                  Começar Agora
-                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  Ver Pacotes de Créditos
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
             </div>
@@ -771,176 +623,48 @@ export default function HomePage() {
         </div>
       </SectionReveal>
 
-      {/* Planos */}
-      <SectionReveal className="py-12 sm:py-16 md:py-20 lg:py-24 bg-[#f9f9f9] dark:bg-black">
-        <div className="container px-4 sm:px-6 md:px-8">
-          <ScrollAnimation>
-            <div className="text-center mb-8 sm:mb-12 md:mb-16">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#0b0c10] dark:text-white mb-3 sm:mb-4">
-                Escolha seu Plano
-              </h2>
-              <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 max-w-2xl mx-auto px-4">
-                Planos flexíveis para atender suas necessidades. Pague mensal, trimestral ou anual.
-              </p>
-            </div>
-          </ScrollAnimation>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
-            {[
-              {
-                name: "Mensal",
-                price: 800,
-                period: "mês",
-                savings: null,
-                popular: false,
-                features: [
-                  "Acesso completo à plataforma",
-                  "Ofertas ilimitadas",
-                  "Todas as ferramentas de IA",
-                  "Espionagem de domínios",
-                  "Suporte por email",
-                  "Atualizações diárias"
-                ]
-              },
-              {
-                name: "Trimestral",
-                price: 2160, // 800 * 3 * 0.9 (10% desconto)
-                originalPrice: 2400, // 800 * 3
-                period: "3 meses",
-                savings: "10% de desconto",
-                popular: true,
-                features: [
-                  "Tudo do plano Mensal",
-                  "10% de desconto",
-                  "Economia de 240 MT",
-                  "Pagamento trimestral",
-                  "Prioridade no suporte"
-                ]
-              },
-              {
-                name: "Anual",
-                price: 7680, // 800 * 12 * 0.8 (20% desconto)
-                originalPrice: 9600, // 800 * 12
-                period: "ano",
-                savings: "20% de desconto",
-                popular: false,
-                features: [
-                  "Tudo do plano Mensal",
-                  "20% de desconto",
-                  "Economia de 1920 MT",
-                  "Pagamento anual",
-                  "Suporte prioritário",
-                  "Acesso a recursos beta"
-                ]
-              }
-            ].map((plan, index) => (
-              <ScrollAnimation key={index} delay={index * 0.1}>
-                <motion.div
-                  whileHover={{ scale: 1.02, y: -5 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Card className={`bg-white dark:bg-black border-2 ${plan.popular ? 'border-[#ff5a1f] shadow-xl' : 'border-gray-200 dark:border-gray-800'} rounded-xl sm:rounded-2xl p-6 sm:p-8 h-full flex flex-col relative overflow-hidden`}>
-                    {plan.popular && (
-                      <div className="absolute top-0 right-0 bg-[#ff5a1f] text-white px-4 py-1 text-xs font-semibold rounded-bl-lg">
-                        Mais Popular
-                      </div>
-                    )}
-                    
-                    <div className="mb-6">
-                      <h3 className="text-xl sm:text-2xl font-bold text-[#0b0c10] dark:text-white mb-2">
-                        {plan.name}
-                      </h3>
-                      <div className="flex items-baseline gap-2 mb-2">
-                        <span className="text-3xl sm:text-4xl font-bold text-[#ff5a1f]">
-                          {plan.price.toLocaleString('pt-MZ')}
-                        </span>
-                        <span className="text-sm text-[#6b6b6b] dark:text-gray-400">MT</span>
-                        {plan.originalPrice && (
-                          <span className="text-sm line-through text-[#6b6b6b] dark:text-gray-500 ml-2">
-                            {plan.originalPrice.toLocaleString('pt-MZ')} MT
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-[#6b6b6b] dark:text-gray-400">
-                        por {plan.period}
-                      </p>
-                      {plan.savings && (
-                        <Badge className="mt-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-                          {plan.savings}
-                        </Badge>
-                      )}
-                    </div>
-
-                    <ul className="flex-1 space-y-3 mb-6">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <Check className="w-5 h-5 text-[#ff5a1f] flex-shrink-0 mt-0.5" />
-                          <span className="text-sm text-[#6b6b6b] dark:text-gray-400">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <Link href={`/checkout?plan=${plan.name.toLowerCase()}`} className="w-full">
-                      <Button 
-                        size="lg"
-                        className={`w-full ${plan.popular ? 'bg-[#ff5a1f] hover:bg-[#ff4d29] text-white' : 'bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100'} rounded-full font-semibold`}
-                      >
-                        Escolher {plan.name}
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </Card>
-                </motion.div>
-              </ScrollAnimation>
-            ))}
-          </div>
-        </div>
-      </SectionReveal>
-
       {/* CTA Final */}
-      <SectionReveal className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white dark:bg-black" offset={40}>
-        <div className="container px-4 sm:px-6 md:px-8">
+      <SectionReveal className="py-24 bg-white dark:bg-black" offset={40}>
+        <div className="container px-4 md:px-6">
           <ScrollAnimation>
             <div className="max-w-3xl mx-auto text-center">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#0b0c10] dark:text-white mb-4 sm:mb-5 md:mb-6">
+              <h2 className="text-4xl md:text-5xl font-bold text-[#0b0c10] dark:text-white mb-6">
                 Pronto para Escalar?
               </h2>
-              <p className="text-sm sm:text-base md:text-lg text-[#6b6b6b] dark:text-gray-400 mb-6 sm:mb-7 md:mb-8 leading-relaxed px-4">
-                Junte-se a centenas de profissionais que já estão escalando com o ArcanumSpy
+              <p className="text-lg text-[#6b6b6b] dark:text-gray-400 mb-8 leading-relaxed">
+                Junte-se a centenas de profissionais que já estão escalando com o SwipeVault Pro
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
-                <Link href="/signup" className="w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/signup">
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="w-full"
                   >
                     <Button 
                       size="lg" 
-                      className="w-full sm:w-auto bg-[#ff5a1f] hover:bg-[#ff4d29] text-white rounded-full px-6 py-5 sm:px-8 sm:py-6 text-base sm:text-lg font-semibold shadow-lg"
+                      className="bg-[#ff5a1f] hover:bg-[#ff4d29] text-white rounded-full px-8 py-6 text-lg font-semibold shadow-lg"
                     >
                       Começar Agora – Grátis
-                      <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+                      <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                   </motion.div>
                 </Link>
-                <Link href="/about" className="w-full sm:w-auto">
+                <Link href="/pricing">
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="w-full"
                   >
                     <Button 
                       size="lg" 
                       variant="outline"
-                      className="w-full sm:w-auto border-2 border-[#0b0c10] dark:border-white text-[#0b0c10] dark:text-white hover:bg-[#0b0c10] dark:hover:bg-white hover:text-white dark:hover:text-[#0b0c10] rounded-full px-6 py-5 sm:px-8 sm:py-6 text-base sm:text-lg font-semibold"
+                      className="border-2 border-[#0b0c10] dark:border-white text-[#0b0c10] dark:text-white hover:bg-[#0b0c10] dark:hover:bg-white hover:text-white dark:hover:text-[#0b0c10] rounded-full px-8 py-6 text-lg font-semibold"
                     >
-                      Saiba Mais
+                      Ver Créditos
                     </Button>
                   </motion.div>
                 </Link>
               </div>
-              <p className="text-xs sm:text-sm text-[#6b6b6b] dark:text-gray-500 mt-4 sm:mt-5 md:mt-6">
+              <p className="text-sm text-[#6b6b6b] dark:text-gray-500 mt-6">
                 7 dias de garantia • Cancele quando quiser
               </p>
             </div>

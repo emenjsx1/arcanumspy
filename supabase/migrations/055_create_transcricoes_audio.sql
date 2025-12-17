@@ -79,3 +79,4 @@ COMMENT ON COLUMN transcricoes_audio.modelo IS 'Modelo do Deepgram usado (nova-2
 
 
 
+

@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
         const profile = profileMap.get(sub.user_id)
         const email = emailMap.get(sub.user_id) || profile?.email || ''
         const userPayments = paymentsByUser.get(sub.user_id) || []
-        const paidPayments = userPayments.filter((p: any) => p.status === 'paid')
+        const paidPayments = userPayments.filter((p: any) => p.status === 'paid' || p.status === 'completed')
         const lastPayment = paidPayments[0] || null
 
         const plan = sub.plan || {}

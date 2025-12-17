@@ -125,13 +125,10 @@ export async function adminGetPayments(filters?: PaymentFilters): Promise<Paymen
     const { createAdminClient } = await import('@/lib/supabase/admin')
     const adminClient = createAdminClient()
 
-    let query = (adminClient
-      .from('payments') as any)
-      .select(`
-        *,
-        user:profiles(id, name, phone_number),
-        plan:plans(id, name, slug)
-      `)
+    // Buscar pagamentos primeiro (sem join com profiles)
+    let query = adminClient
+      .from('payments')
+      .select('*, plan:plans(id, name, slug)')
       .order('created_at', { ascending: false })
 
     if (filters?.status) {
@@ -147,14 +144,39 @@ export async function adminGetPayments(filters?: PaymentFilters): Promise<Paymen
       query = query.lte('created_at', filters.end_date)
     }
 
-    const { data, error } = await query
+    const { data: payments, error: paymentsError } = await query
 
-    if (error) throw error
+    if (paymentsError) throw paymentsError
 
-    return (data || []).map((payment: any) => ({
+    if (!payments || payments.length === 0) {
+      return []
+    }
+
+    // Buscar perfis separadamente usando os user_ids
+    const userIds = [...new Set(payments.map((p: any) => p.user_id))]
+    const { data: profiles, error: profilesError } = await adminClient
+      .from('profiles')
+      .select('id, name, email')
+      .in('id', userIds)
+
+    // Se houver erro ao buscar perfis, continuar sem eles
+    if (profilesError) {
+      console.warn('⚠️ [adminGetPayments] Erro ao buscar perfis:', profilesError.message)
+    }
+
+    // Criar mapa de perfis por user_id
+    const profileMap = new Map()
+    if (profiles) {
+      profiles.forEach((profile: any) => {
+        profileMap.set(profile.id, profile)
+      })
+    }
+
+    // Combinar pagamentos com perfis
+    return payments.map((payment: any) => ({
       ...payment,
-      user: payment.user,
-      plan: payment.plan,
+      user: profileMap.get(payment.user_id) || null,
+      plan: payment.plan || null,
     })) as PaymentWithUser[]
   } catch (error) {
     console.error('Error fetching payments:', error)
@@ -174,7 +196,7 @@ export async function adminGetUsersWithPendingPayments(): Promise<PaymentWithUse
       .from('payments') as any)
       .select(`
         *,
-        user:profiles(id, name, phone_number),
+        user:profiles(id, name, email),
         plan:plans(id, name, slug)
       `)
       .eq('status', 'pending')

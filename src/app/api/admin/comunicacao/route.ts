@@ -2,7 +2,13 @@ import { NextResponse, NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email/resend'
-import { getAdminNewsletterEmail, getAdminPaymentOverdueEmail } from '@/lib/email/admin-templates'
+import { 
+  getAdminNewsletterEmail, 
+  getAdminPaymentOverdueEmail,
+  getAdminNewFeatureEmail,
+  getAdminAccountExpiringEmail,
+  getAdminTrialEndingEmail
+} from '@/lib/email/admin-templates'
 import { ensureArray } from '@/lib/supabase-utils'
 import type { ProfileBasic, UserBasic } from '@/types/schemas'
 
@@ -85,10 +91,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Buscar perfis (sem email, pois email está em auth.users)
+    // Buscar perfis com subscriptions (para obter informações do plano)
     const { data: profilesRaw, error: profilesError } = await adminClient
       .from('profiles')
-      .select('id, name')
+      .select(`
+        id, 
+        name,
+        subscriptions(
+          plan:plans(name, slug)
+        )
+      `)
       .in('id', userIds)
 
     // Tratar erro do Supabase
@@ -110,23 +122,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Buscar emails de auth.users para cada perfil
-    const users: UserBasic[] = await Promise.all(
-      profiles.map(async (profile) => {
+    // Buscar emails de auth.users para cada perfil e incluir subscriptions
+    const users: (UserBasic & { subscriptions?: any[] })[] = await Promise.all(
+      profiles.map(async (profile: any) => {
         try {
           const { data: authUser } = await adminClient.auth.admin.getUserById(profile.id)
           return {
             id: profile.id,
             name: profile.name || null,
             email: authUser?.user?.email || null,
-          } as UserBasic
+            subscriptions: profile.subscriptions || [],
+          } as UserBasic & { subscriptions?: any[] }
         } catch (error) {
           console.warn(`Erro ao buscar email para usuário ${profile.id}:`, error)
           return {
             id: profile.id,
             name: profile.name || null,
             email: null,
-          } as UserBasic
+            subscriptions: profile.subscriptions || [],
+          } as UserBasic & { subscriptions?: any[] }
         }
       })
     )
@@ -172,15 +186,93 @@ export async function POST(request: NextRequest) {
             results.failed++
             continue
           }
+          
+          // Sempre incluir link de renovação
+          const renewalUrl = paymentUrl || `${process.env.NEXT_PUBLIC_APP_URL || 'https://arcanumspy.com'}/billing?renew=true&user=${user.id}`
+          
+          // Buscar nome do plano do usuário se disponível
+          let planName = 'Plano Atual'
+          if (user.subscriptions && Array.isArray(user.subscriptions) && user.subscriptions.length > 0) {
+            const sub = user.subscriptions[0]
+            if (sub.plan && sub.plan.name) {
+              planName = sub.plan.name
+            }
+          } else if ((user as any).subscription && (user as any).subscription.plan && (user as any).subscription.plan.name) {
+            planName = (user as any).subscription.plan.name
+          }
+          
           html = getAdminPaymentOverdueEmail({
             name: user.name || 'Usuário',
             amount,
-            currency: currency || 'BRL',
+            currency: currency || 'MZN',
             dueDate,
             invoiceNumber,
-            paymentUrl
+            paymentUrl,
+            renewalUrl, // Sempre incluir link de renovação
+            planName
           })
-          emailSubject = '⚠️ Pagamento Atrasado - ArcanumSpy'
+          emailSubject = '⚠️ Pagamento Atrasado - Renove Sua Conta Agora - ArcanumSpy'
+        } else if (emailType === 'new_feature') {
+          if (!message) {
+            results.errors.push(`Usuário ${user.name}: mensagem é obrigatória`)
+            results.failed++
+            continue
+          }
+          html = getAdminNewFeatureEmail({
+            name: user.name || 'Usuário',
+            featureName: subject || 'Nova Funcionalidade',
+            featureDescription: message,
+            ctaText: ctaText || 'Explorar Agora',
+            ctaUrl: ctaUrl || `${process.env.NEXT_PUBLIC_APP_URL || 'https://arcanumspy.com'}/dashboard`,
+            benefits: message.split('\n').filter((line: string) => line.trim().startsWith('-') || line.trim().startsWith('•'))
+          })
+          emailSubject = subject || '✨ Nova Funcionalidade - ArcanumSpy'
+        } else if (emailType === 'account_expiring') {
+          if (!dueDate) {
+            results.errors.push(`Usuário ${user.name}: dueDate é obrigatório`)
+            results.failed++
+            continue
+          }
+          const renewalUrl = ctaUrl || `${process.env.NEXT_PUBLIC_APP_URL || 'https://arcanumspy.com'}/billing?renew=true&user=${user.id}`
+          let planName = 'Plano Atual'
+          if (user.subscriptions && Array.isArray(user.subscriptions) && user.subscriptions.length > 0) {
+            const sub = user.subscriptions[0]
+            if (sub.plan && sub.plan.name) {
+              planName = sub.plan.name
+            }
+          } else if ((user as any).subscription && (user as any).subscription.plan && (user as any).subscription.plan.name) {
+            planName = (user as any).subscription.plan.name
+          }
+          html = getAdminAccountExpiringEmail({
+            name: user.name || 'Usuário',
+            planName,
+            expiresAt: dueDate,
+            renewalUrl
+          })
+          emailSubject = '⏰ Sua Conta Expira em Breve - ArcanumSpy'
+        } else if (emailType === 'trial_ending') {
+          if (!dueDate) {
+            results.errors.push(`Usuário ${user.name}: dueDate é obrigatório`)
+            results.failed++
+            continue
+          }
+          const upgradeUrl = ctaUrl || `${process.env.NEXT_PUBLIC_APP_URL || 'https://arcanumspy.com'}/billing?upgrade=true&user=${user.id}`
+          let planName = 'Plano Trial'
+          if (user.subscriptions && Array.isArray(user.subscriptions) && user.subscriptions.length > 0) {
+            const sub = user.subscriptions[0]
+            if (sub.plan && sub.plan.name) {
+              planName = sub.plan.name
+            }
+          } else if ((user as any).subscription && (user as any).subscription.plan && (user as any).subscription.plan.name) {
+            planName = (user as any).subscription.plan.name
+          }
+          html = getAdminTrialEndingEmail({
+            name: user.name || 'Usuário',
+            planName,
+            trialEndsAt: dueDate,
+            upgradeUrl
+          })
+          emailSubject = '🎁 Seu Trial Termina em Breve - ArcanumSpy'
         } else {
           results.errors.push(`Tipo de email inválido: ${emailType}`)
           results.failed++

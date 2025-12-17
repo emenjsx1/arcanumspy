@@ -93,15 +93,22 @@ export async function GET(request: NextRequest) {
     }
 
     // 1. Relatório de Receitas
-    const { data: payments } = await adminClient
+    // Buscar todos os pagamentos confirmados
+    const { data: allPayments } = await adminClient
       .from('payments')
       .select(`
         *,
         plan:plans(name, slug)
       `)
-      .eq('status', 'paid')
-      .gte('paid_at', startDate.toISOString())
-      .order('paid_at', { ascending: false })
+      .in('status', ['paid', 'completed'])
+      .order('paid_at', { ascending: false, nullsFirst: true })
+
+    // Filtrar por período (usar paid_at se disponível, senão created_at)
+    const payments = (allPayments || []).filter((p: any) => {
+      if (period === 'all') return true
+      const paymentDate = p.paid_at ? new Date(p.paid_at) : new Date(p.created_at)
+      return paymentDate >= startDate
+    })
 
     const totalRevenue = (payments || []).reduce((sum: number, p: any) => sum + (p.amount_cents || 0), 0)
 
@@ -180,12 +187,12 @@ export async function GET(request: NextRequest) {
       `)
       .eq('status', 'active')
 
-    const { data: allPayments } = await adminClient
+    const { data: allPaymentsForUsers } = await adminClient
       .from('payments')
       .select('user_id, status')
-      .eq('status', 'paid')
+      .in('status', ['paid', 'completed'])
 
-    const usersWithPayments = new Set(allPayments?.map((p: any) => p.user_id) || [])
+    const usersWithPayments = new Set(allPaymentsForUsers?.map((p: any) => p.user_id) || [])
     const usersWithoutPayment = (allSubscriptions || []).filter((s: any) => {
       const hasPaidPlan = s.plan?.price_monthly_cents > 0
       return hasPaidPlan && !usersWithPayments.has(s.user_id)

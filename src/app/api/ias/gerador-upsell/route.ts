@@ -4,7 +4,38 @@ import { createClient } from "@/lib/supabase/server"
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    
+    // Tentar obter usuário de múltiplas formas
+    let user = null
+    let authError = null
+    
+    // 1. Tentar via cookies (método padrão)
+    const getUserResult = await supabase.auth.getUser()
+    user = getUserResult.data?.user || null
+    authError = getUserResult.error
+    
+    // 2. Se não funcionou, tentar via header Authorization
+    if (!user) {
+      const authHeader = request.headers.get('Authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
+        const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        })
+        const { data: { user: userFromToken } } = await tempClient.auth.getUser(token)
+        if (userFromToken) {
+          user = userFromToken
+          authError = null
+        }
+      }
+    }
 
     if (!user) {
       return NextResponse.json(
@@ -30,123 +61,94 @@ export async function POST(request: Request) {
     }
 
     // Preparar prompt para gerar texto de upsell
-    const prompt = `Crie um texto de upsell persuasivo e convincente que ofereça o seguinte produto complementar:
+    const prompt = `Crie um texto de upsell persuasivo que ofereça o seguinte produto complementar:
+    
+Produto Principal: ${produto_principal}
+Produto de Upsell: ${produto_upsell}
 
-PRODUTO PRINCIPAL: ${produto_principal}
-PRODUTO DE UPSELL: ${produto_upsell}
+O texto deve:
+- Destacar como o produto de upsell complementa o produto principal
+- Criar valor e urgência
+- Oferecer um desconto ou benefício especial
+- Ter uma chamada para ação clara e convincente
+- Ser natural e não parecer forçado`
 
-INSTRUÇÕES:
-1. Crie uma conexão clara entre o produto principal e o upsell, mostrando como eles se complementam
-2. Destaque os benefícios únicos e o valor agregado do produto de upsell
-3. Crie urgência e escassez de forma natural (oferta limitada, desconto especial, etc.)
-4. Inclua uma proposta de valor irresistível (desconto, bônus, garantia especial)
-5. Use uma chamada para ação (CTA) clara, direta e convincente
-6. O texto deve ser natural, persuasivo e não parecer forçado ou "vendedor demais"
-7. Use tom conversacional e que gere confiança
-8. O texto deve ter entre 150-300 palavras
-
-Formato: Texto corrido, bem estruturado, com parágrafos claros e uma CTA destacada no final.`
-
-    // Usar OpenAI
-    const openaiApiKey = process.env.OPENAI_API_KEY
+    // Usar Gemini AI
+    const geminiApiKey = process.env.GEMINI_API_KEY || 'AIzaSyBEkN2vCd-ReoxfDO-859dDsxOvDluhPno'
     let upsell = null
 
-    if (openaiApiKey) {
+    if (geminiApiKey) {
       try {
-        const systemInstruction = 'Você é um especialista em copywriting e vendas, com mais de 10 anos de experiência criando ofertas de upsell que convertem. Você domina técnicas de persuasão, psicologia do consumidor e criação de urgência. Seus textos são sempre naturais, convincentes e focados em valor, não em pressão de venda.'
+        const systemInstruction = 'Você é um especialista em vendas e marketing, especializado em criar ofertas de upsell eficazes. Crie textos persuasivos que aumentem as vendas.'
+        const fullPrompt = `${systemInstruction}\n\n${prompt}`
         
-        console.log('🤖 [Upsell] Iniciando geração com OpenAI...')
-        
-        const openaiResponse = await fetch(
-          'https://api.openai.com/v1/chat/completions',
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${openaiApiKey}`,
             },
             body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                {
-                  role: 'system',
-                  content: systemInstruction
-                },
-                {
-                  role: 'user',
-                  content: prompt
-                }
-              ],
-              temperature: 0.8,
-              max_tokens: 1000,
+              contents: [{
+                parts: [{
+                  text: fullPrompt
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 800,
+              }
             })
           }
         )
 
-        if (openaiResponse.ok) {
-          const openaiData = await openaiResponse.json()
-          upsell = openaiData.choices?.[0]?.message?.content || null
-          if (upsell) {
-            console.log('✅ [Upsell] Gerado com sucesso via OpenAI')
-          } else {
-            console.warn('⚠️ [Upsell] OpenAI retornou resposta vazia')
-          }
+        if (geminiResponse.ok) {
+          const geminiData = await geminiResponse.json()
+          upsell = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || null
         } else {
-          const errorText = await openaiResponse.text()
-          console.error('❌ [Upsell] Erro ao gerar com OpenAI:', errorText)
+          const errorText = await geminiResponse.text()
+          console.error('Erro ao gerar upsell com Gemini:', errorText)
         }
       } catch (error) {
-        console.error('❌ [Upsell] Erro ao chamar OpenAI:', error)
+        console.error('Erro ao chamar Gemini:', error)
       }
-    } else {
-      console.warn('⚠️ [Upsell] OPENAI_API_KEY não configurada, usando fallback')
     }
 
-    // Se não tiver resposta da API, retornar upsell de exemplo
+    // Se não tiver OpenAI, retornar upsell de exemplo
     if (!upsell) {
-      console.log('📝 [Upsell] Usando template de fallback')
-      upsell = `🎯 Oferta Especial de Upsell
+      upsell = `Oferta Especial de Upsell
 
 Você já está adquirindo: ${produto_principal}
 
-Que tal potencializar ainda mais seus resultados?
+Que tal potencializar ainda mais seus resultados com: ${produto_upsell}
 
-Agora você tem a oportunidade única de complementar sua compra com: ${produto_upsell}
+Esta é uma oportunidade única de complementar sua compra com um produto que vai maximizar seus resultados.
 
-Esta combinação vai maximizar seus resultados e acelerar seu sucesso. É a escolha perfeita para quem quer ir além e obter resultados ainda melhores.
-
-✨ Benefícios exclusivos:
-• Complementa perfeitamente o produto principal
-• Aumenta significativamente seus resultados
-• Oferta especial disponível apenas agora
-
-💰 Oferta Limitada:
-Esta é uma oportunidade única com condições especiais que não se repetirá. Aproveite enquanto ainda está disponível.
-
-🚀 Não perca esta chance de potencializar seus resultados!
-
-[Nota: Para obter um upsell mais personalizado e persuasivo, configure a OPENAI_API_KEY nas variáveis de ambiente]`
+[Benefícios do upsell]
+[Desconto ou oferta especial]
+[Chamada para ação]`
     }
 
-    // Salvar no banco se a tabela existir
-    try {
-      const { data, error } = await (supabase
-        .from('upsells_gerados') as any)
-        .insert({
-          user_id: user.id,
-          produto_principal,
-          produto_upsell,
-          texto: upsell,
-        })
-        .select()
-        .single()
+    // Salvar no banco se a tabela existir (comentado pois a tabela pode não existir)
+    // try {
+    //   const { data, error } = await supabase
+    //     .from('upsells_gerados')
+    //     .insert({
+    //       user_id: user.id,
+    //       produto_principal,
+    //       produto_upsell,
+    //       texto: upsell,
+    //     })
+    //     .select()
+    //     .single()
 
-      if (error) {
-        console.error('Erro ao salvar upsell:', error)
-      }
-    } catch (error) {
-      // Tabela pode não existir, continuar
-    }
+    //   if (error) {
+    //     console.error('Erro ao salvar upsell:', error)
+    //   }
+    // } catch (error) {
+    //   console.warn('Erro ao salvar upsell no banco (não crítico):', error)
+    // }
 
     return NextResponse.json({
       success: true,

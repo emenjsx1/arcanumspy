@@ -27,9 +27,6 @@ FISH_AUDIO_API_URL=https://api.fish.audio
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_anon_key
 SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
-
-# Remove.bg API (para remover background de imagens)
-REMOVE_BG_API_KEY=YJJtmqPiybM2pM1zcXAveJ4P
 ```
 
 ### 2. ⚠️ IMPORTANTE: Reiniciar o Servidor

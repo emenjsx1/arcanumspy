@@ -48,3 +48,4 @@ SELECT id, title, is_active, created_at FROM offers ORDER BY created_at DESC;
 
 
 
+

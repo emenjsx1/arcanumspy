@@ -5,10 +5,8 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 type Subscription = Database['public']['Tables']['subscriptions']['Row']
 type Plan = Database['public']['Tables']['plans']['Row']
 
-export interface UserWithSubscription extends Omit<Profile, 'phone_number' | 'email'> {
-  email: string | null // Email from auth.users
-  phone_number: string | null // Phone from profiles (mantém o tipo original)
-  has_active_subscription?: boolean // Status de pagamento/ativação
+export interface UserWithSubscription extends Omit<Profile, 'email'> {
+  email?: string | null // Email from auth.users (pode ser diferente do Profile)
   subscription?: Subscription & { plan?: Plan }
 }
 
@@ -34,8 +32,8 @@ export async function getAllUsers(): Promise<UserWithSubscription[]> {
     const adminClient = createAdminClient()
 
     // Buscar todos os perfis (sem limite)
-    const { data: profiles, error } = await adminClient
-      .from('profiles')
+    const { data: profilesRaw, error } = await (adminClient
+      .from('profiles') as any)
       .select(`
         *,
         subscriptions(
@@ -44,7 +42,8 @@ export async function getAllUsers(): Promise<UserWithSubscription[]> {
         )
       `)
       .order('created_at', { ascending: false })
-      // Remover qualquer limite padrão - buscar TODOS os usuários
+    
+    const profiles = (profilesRaw || []) as any[]
 
     if (error) {
       // Se houver erro com subscriptions, tentar sem elas
@@ -58,21 +57,22 @@ export async function getAllUsers(): Promise<UserWithSubscription[]> {
         if (fallbackError) throw fallbackError
 
         // Buscar emails de todos os usuários em paralelo
+        const profilesArray: any[] = Array.isArray(fallbackProfiles) ? fallbackProfiles : []
         const usersWithEmail = await Promise.all(
-          (fallbackProfiles || []).map(async (profile: Profile) => {
+          profilesArray.map(async (profile: any) => {
             try {
               const { data: authUser } = await adminClient.auth.admin.getUserById(profile.id)
               return {
                 ...profile,
                 email: authUser?.user?.email || null,
-                subscriptions: [],
+                subscription: undefined,
               } as UserWithSubscription
             } catch (emailError) {
               console.warn(`⚠️ [Admin All Users] Erro ao buscar email para usuário ${profile.id}:`, emailError)
               return {
                 ...profile,
                 email: null,
-                subscriptions: [],
+                subscription: undefined,
               } as UserWithSubscription
             }
           })
@@ -85,8 +85,9 @@ export async function getAllUsers(): Promise<UserWithSubscription[]> {
     }
 
     // Buscar emails de todos os usuários em paralelo
+    const profilesArray: any[] = Array.isArray(profiles) ? profiles : []
     const usersWithEmail = await Promise.all(
-      (profiles || []).map(async (profile: Profile) => {
+      profilesArray.map(async (profile: any) => {
         try {
           const { data: authUser } = await adminClient.auth.admin.getUserById(profile.id)
           return {
@@ -158,8 +159,8 @@ export async function getUserFullInfoForAdmin(userId: string): Promise<UserFullI
     const adminClient = createAdminClient()
 
     // Get profile with subscription
-    const { data: profile, error: profileError } = await adminClient
-      .from('profiles')
+    const { data: profileRaw, error: profileError } = await (adminClient
+      .from('profiles') as any)
       .select(`
         id,
         name,
@@ -175,25 +176,26 @@ export async function getUserFullInfoForAdmin(userId: string): Promise<UserFullI
       .single()
 
     if (profileError) throw profileError
-    if (!profile) return null
+    if (!profileRaw) return null
+
+    const profile = profileRaw as any
 
     // Get email from auth.users
     const { data: authUser } = await adminClient.auth.admin.getUserById(userId)
     const email = authUser?.user?.email || null
 
-    const profileWithSubs = profile as Profile & { subscriptions?: Array<{ status: string; plan?: { name: string; slug: string } }> }
-    const subscription = profileWithSubs.subscriptions?.[0]
+    const subscription = profile.subscriptions?.[0] || profile.subscription
     const plan = subscription?.plan
 
     return {
-      id: profileWithSubs.id,
-      name: profileWithSubs.name,
-      phone_number: profileWithSubs.phone_number,
+      id: profile.id,
+      name: profile.name,
+      phone_number: profile.phone_number,
       email,
-      role: profileWithSubs.role,
+      role: profile.role,
       plan: plan ? { name: plan.name, slug: plan.slug } : undefined,
       subscription_status: subscription?.status,
-      created_at: profileWithSubs.created_at,
+      created_at: profile.created_at,
     }
   } catch (error) {
     console.error('Error fetching user full info:', error)

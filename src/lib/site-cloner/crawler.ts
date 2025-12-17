@@ -160,12 +160,39 @@ export async function crawlSite(targetUrl: string): Promise<CrawlResult> {
 
   // 1. Baixar HTML principal
   console.log(`📥 Baixando HTML principal: ${baseUrl}`)
-  const { buffer: htmlBuffer, contentType } = await downloadFile(baseUrl)
+  let htmlBuffer: Buffer
+  try {
+    const result = await downloadFile(baseUrl)
+    htmlBuffer = result.buffer
+    if (!htmlBuffer || htmlBuffer.length === 0) {
+      throw new Error('HTML principal está vazio')
+    }
+    console.log(`✅ HTML baixado: ${htmlBuffer.length} bytes`)
+  } catch (error: any) {
+    console.error(`❌ Erro ao baixar HTML principal:`, error)
+    throw new Error(`Não foi possível baixar o HTML principal: ${error.message}`)
+  }
+  
   const htmlPath = 'index.html'
-  addAsset(baseUrl, htmlPath, 'html', htmlBuffer)
+  if (!addAsset(baseUrl, htmlPath, 'html', htmlBuffer)) {
+    throw new Error('Erro ao adicionar HTML principal aos assets')
+  }
+  console.log(`✅ HTML principal adicionado aos assets`)
 
   // 2. Parsear HTML com Cheerio
-  const $ = cheerio.load(htmlBuffer.toString('utf-8'))
+  let $: cheerio.CheerioAPI
+  try {
+    const htmlContent = htmlBuffer.toString('utf-8')
+    if (!htmlContent || htmlContent.trim().length === 0) {
+      throw new Error('HTML está vazio após parsing')
+    }
+    $ = cheerio.load(htmlContent)
+    console.log(`✅ HTML parseado com sucesso`)
+  } catch (error: any) {
+    console.error(`❌ Erro ao parsear HTML:`, error)
+    throw new Error(`Erro ao processar HTML: ${error.message}`)
+  }
+  
   const baseHref = $('base').attr('href') || baseUrl
 
   // 3. Encontrar e baixar CSS
@@ -206,32 +233,63 @@ export async function crawlSite(targetUrl: string): Promise<CrawlResult> {
     ...fontLinks.map(url => ({ url, type: 'font' as const }))
   ]
 
-  // Filtrar apenas URLs do mesmo domínio
+  console.log(`📋 Total de links encontrados: ${allLinks.length} (CSS: ${cssLinks.length}, JS: ${jsLinks.length}, Imagens: ${imageLinks.length})`)
+
+  // Filtrar apenas URLs do mesmo domínio (mas ser mais flexível)
   const sameDomainLinks = allLinks.filter(({ url }) => {
     try {
-      return isSameDomain(url, domain)
+      const urlObj = new URL(url)
+      // Aceitar mesmo domínio ou subdomínios
+      return urlObj.hostname === domain || 
+             urlObj.hostname.endsWith('.' + domain) ||
+             domain.endsWith('.' + urlObj.hostname)
     } catch {
       return false
     }
   })
 
-  console.log(`📦 Encontrados ${sameDomainLinks.length} assets do mesmo domínio`)
+  console.log(`📦 Encontrados ${sameDomainLinks.length} assets do mesmo domínio (de ${allLinks.length} total)`)
 
-  // Baixar assets em paralelo (com limite)
+  // Baixar assets em paralelo (com limite maior)
   const downloadPromises: Promise<void>[] = []
   let processedCount = 0
+  const MAX_ASSETS = 100 // Aumentado de 50 para 100
 
   for (const { url, type } of sameDomainLinks) {
-    if (processedCount >= 50) break // Limite de 50 assets para não sobrecarregar
+    if (processedCount >= MAX_ASSETS) {
+      console.log(`⚠️ Limite de ${MAX_ASSETS} assets atingido`)
+      break
+    }
 
     const promise = downloadFile(url)
       .then(({ buffer, contentType }) => {
+        if (!buffer || buffer.length === 0) {
+          console.warn(`⚠️ Arquivo vazio: ${url}`)
+          return
+        }
+        
         const assetType = getAssetType(url, contentType)
-        const relativePath = new URL(url).pathname || `assets/${url.split('/').pop()}`
-        const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath
+        const urlObj = new URL(url)
+        let relativePath = urlObj.pathname
+        
+        // Se não tiver pathname, usar o nome do arquivo
+        if (!relativePath || relativePath === '/') {
+          const fileName = url.split('/').pop()?.split('?')[0] || 'file'
+          relativePath = `assets/${fileName}`
+        } else {
+          // Remover barra inicial e criar estrutura de pastas
+          relativePath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath
+          // Garantir que não seja vazio
+          if (!relativePath) {
+            relativePath = `assets/${url.split('/').pop()?.split('?')[0] || 'file'}`
+          }
+        }
 
-        addAsset(url, cleanPath, assetType, buffer)
-        processedCount++
+        const added = addAsset(url, relativePath, assetType, buffer)
+        if (added) {
+          processedCount++
+          console.log(`✅ Baixado: ${relativePath} (${(buffer.length / 1024).toFixed(2)} KB)`)
+        }
       })
       .catch((error) => {
         console.warn(`⚠️ Erro ao baixar ${url}:`, error.message)
@@ -239,54 +297,98 @@ export async function crawlSite(targetUrl: string): Promise<CrawlResult> {
 
     downloadPromises.push(promise)
 
-    // Processar em lotes de 10
-    if (downloadPromises.length >= 10) {
-      await Promise.all(downloadPromises)
+    // Processar em lotes de 5 para não sobrecarregar
+    if (downloadPromises.length >= 5) {
+      await Promise.allSettled(downloadPromises)
       downloadPromises.length = 0
     }
   }
 
   // Aguardar downloads restantes
-  await Promise.all(downloadPromises)
+  if (downloadPromises.length > 0) {
+    await Promise.allSettled(downloadPromises)
+  }
+  
+  console.log(`✅ Downloads concluídos: ${processedCount} arquivos baixados`)
 
   // Processar CSS para encontrar fontes e imagens inline
   for (const asset of assets) {
-    if (asset.type === 'css' && asset.content) {
-      const cssContent = asset.content.toString('utf-8')
-      
-      // Encontrar @font-face e url()
-      const urlMatches = cssContent.match(/url\(['"]?([^'")]+)['"]?\)/gi)
-      if (urlMatches) {
-        for (const match of urlMatches) {
-          const urlMatch = match.match(/url\(['"]?([^'")]+)['"]?\)/i)
-          if (urlMatch && urlMatch[1]) {
-            const fontUrl = resolveUrl(asset.url, urlMatch[1])
-            if (isSameDomain(fontUrl, domain) && !downloadedUrls.has(fontUrl.split('?')[0])) {
-              try {
-                const { buffer } = await downloadFile(fontUrl)
-                const fontType = getAssetType(fontUrl)
-                const relativePath = new URL(fontUrl).pathname || `assets/${fontUrl.split('/').pop()}`
-                const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath
-                addAsset(fontUrl, cleanPath, fontType, buffer)
-              } catch (error: any) {
-                console.warn(`⚠️ Erro ao baixar fonte ${fontUrl}:`, error.message)
+    if (asset.type === 'css' && asset.content && asset.content.length > 0) {
+      try {
+        const cssContent = asset.content.toString('utf-8')
+        
+        // Encontrar @font-face e url()
+        const urlMatches = cssContent.match(/url\(['"]?([^'")]+)['"]?\)/gi)
+        if (urlMatches && urlMatches.length > 0) {
+          console.log(`🔍 Encontradas ${urlMatches.length} URLs no CSS: ${asset.path}`)
+          for (const match of urlMatches) {
+            const urlMatch = match.match(/url\(['"]?([^'")]+)['"]?\)/i)
+            if (urlMatch && urlMatch[1]) {
+              const fontUrl = resolveUrl(asset.url, urlMatch[1])
+              const normalizedFontUrl = fontUrl.split('?')[0]
+              
+              if (!downloadedUrls.has(normalizedFontUrl)) {
+                try {
+                  const { buffer } = await downloadFile(fontUrl)
+                  if (buffer && buffer.length > 0) {
+                    const fontType = getAssetType(fontUrl)
+                    const urlObj = new URL(fontUrl)
+                    let relativePath = urlObj.pathname || `assets/${fontUrl.split('/').pop()?.split('?')[0] || 'font'}`
+                    relativePath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath
+                    if (addAsset(fontUrl, relativePath, fontType, buffer)) {
+                      console.log(`✅ Fonte baixada: ${relativePath}`)
+                    }
+                  }
+                } catch (error: any) {
+                  console.warn(`⚠️ Erro ao baixar fonte ${fontUrl}:`, error.message)
+                }
               }
             }
           }
         }
+      } catch (error: any) {
+        console.warn(`⚠️ Erro ao processar CSS ${asset.path}:`, error.message)
       }
     }
   }
 
-  console.log(`✅ Crawling completo: ${assets.length} assets, ${(totalSize / 1024 / 1024).toFixed(2)} MB`)
+  // Garantir que temos pelo menos o HTML principal
+  const assetsWithContent = assets.filter(a => {
+    const hasContent = a.content && a.content.length > 0
+    if (!hasContent) {
+      console.warn(`⚠️ Asset sem conteúdo: ${a.path || a.url} (tipo: ${a.type})`)
+    }
+    return hasContent
+  })
+  
+  if (assetsWithContent.length === 0) {
+    console.error(`❌ Nenhum arquivo com conteúdo foi baixado!`)
+    console.error(`   Total de assets coletados: ${assets.length}`)
+    console.error(`   Assets por tipo:`, {
+      html: assets.filter(a => a.type === 'html').length,
+      css: assets.filter(a => a.type === 'css').length,
+      js: assets.filter(a => a.type === 'js').length,
+      image: assets.filter(a => a.type === 'image').length,
+      other: assets.filter(a => a.type === 'other').length,
+    })
+    throw new Error('Nenhum arquivo foi baixado com sucesso. Verifique se a URL está acessível e se o site permite download de seus recursos.')
+  }
 
+  // Calcular tamanho total real
+  const realTotalSize = assetsWithContent.reduce((sum, a) => sum + (a.content?.length || 0), 0)
+
+  console.log(`✅ Crawling completo: ${assetsWithContent.length} assets com conteúdo (de ${assets.length} total), ${(realTotalSize / 1024 / 1024).toFixed(2)} MB`)
+  console.log(`   Detalhes: HTML: ${assetsWithContent.filter(a => a.type === 'html').length}, CSS: ${assetsWithContent.filter(a => a.type === 'css').length}, JS: ${assetsWithContent.filter(a => a.type === 'js').length}, Imagens: ${assetsWithContent.filter(a => a.type === 'image').length}`)
+  
+  // Retornar apenas assets com conteúdo
   return {
-    assets,
-    totalSize,
+    assets: assetsWithContent,
+    totalSize: realTotalSize,
     baseUrl,
     domain
   }
 }
+
 
 
 

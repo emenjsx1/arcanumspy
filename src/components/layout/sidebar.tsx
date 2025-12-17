@@ -118,6 +118,7 @@ const userNavItems = [
       { href: "/ferramentas/mascarar-criativo", label: "Mascarar Criativo", icon: EyeOff },
       { href: "/ferramentas/esconder-criativo", label: "Esconder Criativo", icon: Eye },
       { href: "/ferramentas/criptografar-texto", label: "Criptografar Texto", icon: Lock },
+      { href: "/ferramentas/clonador", label: "Clonador de Sites", icon: Globe },
     ]
   },
   { 

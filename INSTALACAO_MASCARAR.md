@@ -118,3 +118,4 @@ O sistema est√° pronto para uso. Consulte `MASCARAR_CRIATIVO.md` para documenta√
 
 
 
+

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { requireAdmin } from "@/lib/api-helpers/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Database } from "@/types/database"
 
@@ -11,30 +11,9 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = await createClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      )
-    }
-
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    const profileRole = profile ? (profile as unknown as { role?: string }).role : null
-    if (profileRole !== 'admin') {
-      return NextResponse.json(
-        { error: "Não autorizado" },
-        { status: 403 }
-      )
+    const authResult = await requireAdmin(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
     }
 
     const { plan_id } = await request.json()

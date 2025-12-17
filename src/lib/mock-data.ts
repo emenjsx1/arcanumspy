@@ -32,7 +32,7 @@ export const mockUsers: User[] = [
   {
     id: '3',
     name: 'Admin User',
-    email: 'admin@arcanumspy.com',
+    email: 'admin@swipevault.com',
     plan: 'pro',
     role: 'admin',
     status: 'active',
@@ -315,7 +315,7 @@ export const mockLogs: Log[] = [
     id: '3',
     type: 'admin_change',
     userId: '3',
-    userEmail: 'admin@arcanumspy.com',
+    userEmail: 'admin@swipevault.com',
     action: 'Updated offer: Crypto Master',
     timestamp: '2024-03-14T15:30:00Z',
   },
@@ -340,7 +340,7 @@ export const mockTickets: Ticket[] = [
     userId: '2',
     userEmail: 'maria@example.com',
     subject: 'Como fazer upgrade do plano?',
-    message: 'Gostaria de fazer upgrade do plano Pro para ter acesso a todas as categorias.',
+    message: 'Gostaria de fazer upgrade do plano Elite para ter acesso a todas as categorias.',
     status: 'resolved',
     priority: 'low',
     responses: [

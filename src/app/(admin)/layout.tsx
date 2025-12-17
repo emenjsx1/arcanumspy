@@ -82,10 +82,13 @@ export default function AdminLayout({
 
   // CORREÇÃO: Timeout de segurança para evitar loading infinito
   useEffect(() => {
-    // Timeout de segurança: se após 2 segundos ainda não inicializou, permitir renderização
+    // Timeout de segurança: se após 3 segundos ainda não inicializou, permitir renderização
     const timeout = setTimeout(() => {
       setSafetyTimeout(true)
-    }, 2000)
+      if (!initialized) {
+        setInitialized(true) // Forçar inicialização após timeout
+      }
+    }, 3000) // Aumentado para 3 segundos
     
     return () => clearTimeout(timeout)
   }, [])

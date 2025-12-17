@@ -53,9 +53,17 @@ export async function GET(request: NextRequest) {
         )
       ]) as any
 
+      // Garantir que stats tem o formato esperado pelo frontend
+      const formattedStats = {
+        offersViewed: stats.offersViewed || stats.offers_viewed || 0,
+        offersViewedTotal: stats.offersViewedTotal || stats.offers_viewed_total || 0,
+        favoritesCount: stats.favoritesCount || stats.favorites_count || 0,
+        categoriesAccessed: stats.categoriesAccessed || stats.categories_accessed || 0,
+      }
+
       const response = NextResponse.json({
         success: true,
-        stats
+        stats: formattedStats
       })
       return withMediumCache(response) // Cache de 1 minuto (dados específicos do usuário)
     } catch (statsError: any) {
@@ -64,10 +72,10 @@ export async function GET(request: NextRequest) {
       const response = NextResponse.json({
         success: true,
         stats: {
-          total_offers: 0,
-          total_views: 0,
-          total_favorites: 0,
-          recent_activities: []
+          offersViewed: 0,
+          offersViewedTotal: 0,
+          favoritesCount: 0,
+          categoriesAccessed: 0
         }
       })
       return withMediumCache(response)
@@ -80,10 +88,10 @@ export async function GET(request: NextRequest) {
       const response = NextResponse.json({
         success: true,
         stats: {
-          total_offers: 0,
-          total_views: 0,
-          total_favorites: 0,
-          recent_activities: []
+          offersViewed: 0,
+          offersViewedTotal: 0,
+          favoritesCount: 0,
+          categoriesAccessed: 0
         }
       })
       return withMediumCache(response)

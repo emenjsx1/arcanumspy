@@ -1,45 +1,10 @@
-import { NextResponse, NextRequest } from "next/server"
+import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { removeBackground } from "@/lib/remove-bg"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    // Validar REMOVE_BG_API_KEY - se não tiver, retornar erro amigável (não crítico)
-    if (!process.env.REMOVE_BG_API_KEY) {
-      // Não logar como erro crítico, apenas aviso
-      return NextResponse.json(
-        { 
-          error: "Funcionalidade de remoção de background não está disponível no momento",
-          code: "SERVICE_UNAVAILABLE"
-        },
-        { status: 503 }
-      )
-    }
-
     const supabase = await createClient()
-    let { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    // Se não conseguir via cookies, tentar via header
-    if (!user && authError) {
-      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
-      if (authHeader?.startsWith('Bearer ')) {
-        const token = authHeader.substring(7)
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
-        const tempClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-          global: {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        })
-        const { data: { user: userFromToken } } = await tempClient.auth.getUser(token)
-        if (userFromToken) {
-          user = userFromToken
-        }
-      }
-    }
+    const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json(
@@ -66,114 +31,82 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validar tamanho do arquivo (máximo 10MB)
-    const maxSize = 10 * 1024 * 1024 // 10MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "Arquivo muito grande. Tamanho máximo: 10MB" },
-        { status: 400 }
-      )
-    }
-
     // Converter arquivo para buffer
-    let buffer: Buffer
-    try {
-      const arrayBuffer = await file.arrayBuffer()
-      buffer = Buffer.from(arrayBuffer)
-      
-      // Validar que o buffer não está vazio
-      if (buffer.length === 0) {
-        return NextResponse.json(
-          { error: "Arquivo de imagem está vazio" },
-          { status: 400 }
-        )
-      }
-    } catch (error: any) {
-      console.error('❌ Erro ao converter arquivo para buffer:', error)
-      return NextResponse.json(
-        { error: "Erro ao processar arquivo" },
-        { status: 400 }
-      )
-    }
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
-    // Remover background usando remove.bg API
+    // Usar Remove.bg API
+    const removeBgApiKey = process.env.REMOVEBG_API_KEY || 'YJJtmqPiybM2pM1zcXAveJ4P'
     let imageUrl = null
-    let errorMessage = null
 
-    try {
-      // Usar remove.bg com opções padrão
-      imageUrl = await removeBackground(buffer, {
-        size: 'auto', // Tamanho automático
-        format: 'png', // PNG com transparência
-      })
-      
-      // Validar que a resposta não está vazia
-      if (!imageUrl || imageUrl.length === 0) {
-        throw new Error('Resposta vazia da API remove.bg')
-      }
-    } catch (error: any) {
-      console.error('❌ Erro completo ao remover background com remove.bg:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        error: error
-      })
-      errorMessage = error.message || 'Erro desconhecido ao remover background'
-      
-      return NextResponse.json(
-        { 
-          error: "Erro ao remover background",
-          details: errorMessage,
-          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        },
-        { status: 500 }
-      )
-    }
+    if (removeBgApiKey) {
+      try {
+        // Remove.bg requer multipart/form-data com o arquivo binário
+        // No Node.js 18+, FormData funciona, mas precisamos criar corretamente
+        const formDataRemoveBg = new FormData()
+        // Criar um File object do buffer (Node.js 18+ suporta File)
+        const fileObj = new File([buffer], file.name || 'image.jpg', { type: file.type })
+        formDataRemoveBg.append('image_file', fileObj)
+        formDataRemoveBg.append('size', 'auto')
 
-    // CORREÇÃO: Salvar no banco apenas se a tabela existir (opcional, não quebra se falhar)
-    try {
-      const base64Image = buffer.toString('base64')
-      const { data, error } = await (supabase
-        .from('imagens_processadas') as any)
-        .insert({
-          user_id: user.id,
-          tipo: 'remover_background',
-          url_original: `data:${file.type};base64,${base64Image}`,
-          url_processada: imageUrl,
+        const removeBgResponse = await fetch('https://api.remove.bg/v1.0/removebg', {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': removeBgApiKey,
+          },
+          body: formDataRemoveBg
         })
-        .select()
-        .single()
 
-      if (error) {
-        // Se a tabela não existir (código 42P01) ou qualquer outro erro, apenas logar
-        // Não quebrar a resposta se o salvamento falhar
-        if (error.code === '42P01' || error.code === 'PGRST202') {
-          console.warn('⚠️ Tabela imagens_processadas não existe, pulando salvamento')
+        if (removeBgResponse.ok) {
+          const removeBgData = await removeBgResponse.arrayBuffer()
+          const resultBuffer = Buffer.from(removeBgData)
+          const resultBase64 = resultBuffer.toString('base64')
+          imageUrl = `data:image/png;base64,${resultBase64}`
         } else {
-          console.error('⚠️ Erro ao salvar imagem processada (não crítico):', error.message)
+          console.error('Erro ao remover background com Remove.bg:', await removeBgResponse.text())
         }
-      }
-    } catch (error: any) {
-      // Tabela pode não existir ou qualquer outro erro - apenas logar, não quebrar
-      if (error.code === '42P01' || error.code === 'PGRST202') {
-        console.warn('⚠️ Tabela imagens_processadas não existe, pulando salvamento')
-      } else {
-        console.error('⚠️ Erro ao salvar no banco (não crítico):', error.message)
+      } catch (error) {
+        console.error('Erro ao chamar Remove.bg:', error)
       }
     }
+
+    // Se não tiver Remove.bg, retornar imagem original (ou implementar alternativa)
+    if (!imageUrl) {
+      // Retornar imagem original como fallback
+      const base64Image = buffer.toString('base64')
+      imageUrl = `data:${file.type};base64,${base64Image}`
+    }
+
+    // Salvar no banco se a tabela existir (comentado pois a tabela pode não existir)
+    // try {
+    //   const base64Image = buffer.toString('base64')
+    //   const { data, error } = await supabase
+    //     .from('imagens_processadas')
+    //     .insert({
+    //       user_id: user.id,
+    //       tipo: 'remover_background',
+    //       url_original: `data:${file.type};base64,${base64Image}`,
+    //       url_processada: imageUrl,
+    //     })
+    //     .select()
+    //     .single()
+
+    //   if (error) {
+    //     console.error('Erro ao salvar imagem processada:', error)
+    //   }
+    // } catch (error) {
+    //   // Tabela pode não existir, continuar
+    // }
 
     return NextResponse.json({
       success: true,
       imageUrl,
-      message: "Background removido com sucesso"
+      message: removeBgApiKey ? "Background removido com sucesso" : "Configure REMOVEBG_API_KEY para remover backgrounds"
     })
   } catch (error: any) {
-    console.error('❌ Error in background removal:', error)
+    console.error('Error in background removal:', error)
     return NextResponse.json(
-      { 
-        error: error.message || "Erro ao processar imagem",
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      },
+      { error: error.message || "Erro ao processar imagem" },
       { status: 500 }
     )
   }

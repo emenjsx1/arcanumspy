@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { MoreHorizontal, Eye, Key, Ban, Check, Shield, User } from "lucide-react"
+import { MoreHorizontal, Eye, Key, Ban, Check, Clock, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase/client"
 
@@ -20,14 +20,19 @@ interface UserWithSubscription {
   phone_number?: string | null
   email?: string | null
   role: string
-  has_active_subscription?: boolean
   created_at: string
   subscription?: {
     plan?: {
       name: string
       slug: string
     }
+    current_period_end?: string | null
+    status?: string
   }
+  has_paid?: boolean
+  is_banned?: boolean
+  status?: 'active' | 'paid' | 'unpaid' | 'banned'
+  status_label?: string
 }
 
 export default function AdminUsersPage() {
@@ -35,12 +40,44 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [planFilter, setPlanFilter] = useState<string>("")
+  const [selectedUser, setSelectedUser] = useState<UserWithSubscription | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
+  const [changePlanOpen, setChangePlanOpen] = useState(false)
+  const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null)
+  const [changePlanUserId, setChangePlanUserId] = useState<string | null>(null)
+  const [plans, setPlans] = useState<any[]>([])
+  const [loadingPlans, setLoadingPlans] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     loadUsers()
+    loadPlans()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const loadPlans = async () => {
+    try {
+      setLoadingPlans(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch('/api/admin/plans', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setPlans(data.plans || [])
+      }
+    } catch (error) {
+      console.error('Erro ao carregar planos:', error)
+    } finally {
+      setLoadingPlans(false)
+    }
+  }
 
   const loadUsers = async () => {
     setLoading(true)
@@ -89,27 +126,73 @@ export default function AdminUsersPage() {
   })
 
   const handleResetPassword = (userId: string) => {
-    toast({
-      title: "Funcionalidade em desenvolvimento",
-      description: "Reset de senha será implementado em breve",
-    })
+    setResetPasswordUserId(userId)
+    setResetPasswordOpen(true)
+  }
+
+  const confirmResetPassword = async () => {
+    if (!resetPasswordUserId) return
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast({
+          title: "Erro",
+          description: "Não autenticado",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const response = await fetch(`/api/admin/users/${resetPasswordUserId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao resetar senha')
+      }
+
+      const data = await response.json()
+
+      if (data.resetLink) {
+        // Copiar link para clipboard
+        navigator.clipboard.writeText(data.resetLink)
+        toast({
+          title: "✅ Link de recuperação gerado",
+          description: `Link copiado para a área de transferência! Envie para: ${data.email || 'o usuário'}`,
+        })
+      } else {
+        toast({
+          title: "✅ Link de recuperação gerado",
+          description: `Um email de recuperação foi enviado para ${data.email || 'o usuário'}`,
+        })
+      }
+
+      setResetPasswordOpen(false)
+      setResetPasswordUserId(null)
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível resetar a senha",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleChangePlan = (userId: string) => {
-    toast({
-      title: "Funcionalidade em desenvolvimento",
-      description: "Alteração de plano será implementada em breve",
-    })
+    setChangePlanUserId(userId)
+    setChangePlanOpen(true)
   }
 
-  const handleToggleBlock = async (userId: string) => {
-    if (!confirm('Tem certeza que deseja bloquear este usuário? Ele precisará fazer um novo pagamento para ser desbloqueado.')) {
-      return
-    }
+  const confirmChangePlan = async (planId: string) => {
+    if (!changePlanUserId || !planId) return
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      
       if (!session) {
         toast({
           title: "Erro",
@@ -119,44 +202,42 @@ export default function AdminUsersPage() {
         return
       }
 
-      const response = await fetch(`/api/admin/users/${userId}/block`, {
+      const response = await fetch(`/api/admin/users/${changePlanUserId}/subscription`, {
         method: 'PUT',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ blocked: true }),
+        body: JSON.stringify({ plan_id: planId }),
       })
-
-      const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao bloquear usuário')
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao alterar plano')
       }
 
+      // Recarregar usuários para atualizar o plano
+      await loadUsers()
+
       toast({
-        title: "Usuário bloqueado",
-        description: data.message || "O usuário foi bloqueado e precisará fazer um novo pagamento para acessar novamente.",
+        title: "✅ Plano alterado",
+        description: "O plano do usuário foi alterado com sucesso",
       })
 
-      // Recarregar lista de usuários
-      loadUsers()
+      setChangePlanOpen(false)
+      setChangePlanUserId(null)
     } catch (error: any) {
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível bloquear o usuário",
+        description: error.message || "Não foi possível alterar o plano",
         variant: "destructive",
       })
     }
   }
 
-  const handleChangeRole = async (userId: string, currentRole: string) => {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin'
-    
+  const handleToggleStatus = async (userId: string, currentBanned: boolean) => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      
       if (!session) {
         toast({
           title: "Erro",
@@ -166,36 +247,43 @@ export default function AdminUsersPage() {
         return
       }
 
-      const response = await fetch(`/api/admin/users/${userId}/role`, {
+      const response = await fetch(`/api/admin/users/${userId}/status`, {
         method: 'PUT',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ role: newRole }),
+        body: JSON.stringify({ banned: !currentBanned }),
       })
-
-      const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao atualizar role')
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao alterar status')
       }
 
-      toast({
-        title: "Sucesso",
-        description: data.message || `Usuário agora é ${newRole === 'admin' ? 'admin' : 'usuário'}`,
-      })
+      // Atualizar estado local
+      setUsers(users.map(u => 
+        u.id === userId 
+          ? { ...u, is_banned: !currentBanned, status: !currentBanned ? 'banned' : 'paid', status_label: !currentBanned ? 'Bloqueado' : 'Pago' }
+          : u
+      ))
 
-      // Recarregar lista de usuários
-      loadUsers()
+      toast({
+        title: "✅ Status atualizado",
+        description: `Usuário ${!currentBanned ? 'bloqueado' : 'desbloqueado'} com sucesso`,
+      })
     } catch (error: any) {
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível atualizar o role do usuário",
+        description: error.message || "Não foi possível alterar o status",
         variant: "destructive",
       })
     }
+  }
+
+  const handleViewDetails = (user: UserWithSubscription) => {
+    setSelectedUser(user)
+    setDetailsOpen(true)
   }
 
   return (
@@ -223,9 +311,6 @@ export default function AdminUsersPage() {
             <SelectItem value="all">Todos os planos</SelectItem>
             <SelectItem value="free">Free</SelectItem>
             <SelectItem value="pro">Pro</SelectItem>
-            <SelectItem value="mensal">Mensal</SelectItem>
-            <SelectItem value="trimestral">Trimestral</SelectItem>
-            <SelectItem value="anual">Anual</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -272,19 +357,27 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{planName}</Badge>
+                        <Badge variant="secondary">
+                          {user.subscription?.plan?.name || 'Free'}
+                        </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                            {user.role === 'admin' ? 'Admin' : 'Usuário'}
+                        {user.is_banned ? (
+                          <Badge variant="destructive">
+                            <Ban className="h-3 w-3 mr-1" />
+                            Bloqueado
                           </Badge>
-                          <Badge 
-                            variant={user.has_active_subscription ? 'default' : 'destructive'}
-                          >
-                            {user.has_active_subscription ? 'Ativo' : 'Bloqueado'}
+                        ) : user.has_paid ? (
+                          <Badge variant="default" className="bg-green-600">
+                            <Check className="h-3 w-3 mr-1" />
+                            Pago
                           </Badge>
-                        </div>
+                        ) : (
+                          <Badge variant="secondary" className="bg-yellow-500">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pagamento Pendente
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(user.created_at).toLocaleDateString('pt-BR')}
@@ -297,25 +390,9 @@ export default function AdminUsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewDetails(user)}>
                               <Eye className="mr-2 h-4 w-4" />
                               Ver detalhes
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleChangeRole(user.id, user.role)}
-                              className={user.role === 'admin' ? "text-orange-600" : "text-blue-600"}
-                            >
-                              {user.role === 'admin' ? (
-                                <>
-                                  <User className="mr-2 h-4 w-4" />
-                                  Remover Admin
-                                </>
-                              ) : (
-                                <>
-                                  <Shield className="mr-2 h-4 w-4" />
-                                  Tornar Admin
-                                </>
-                              )}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleResetPassword(user.id)}>
                               <Key className="mr-2 h-4 w-4" />
@@ -324,24 +401,10 @@ export default function AdminUsersPage() {
                             <DropdownMenuItem onClick={() => handleChangePlan(user.id)}>
                               Alterar plano
                             </DropdownMenuItem>
-                            {user.role !== 'admin' && (
-                              <>
-                                {user.has_active_subscription ? (
-                                  <DropdownMenuItem 
-                                    onClick={() => handleToggleBlock(user.id)}
-                                    className="text-red-600"
-                                  >
-                                    <Ban className="mr-2 h-4 w-4" />
-                                    Bloquear Usuário
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem disabled className="text-gray-500">
-                                    <Ban className="mr-2 h-4 w-4" />
-                                    Usuário Bloqueado (precisa pagar)
-                                  </DropdownMenuItem>
-                                )}
-                              </>
-                            )}
+                            <DropdownMenuItem onClick={() => handleToggleStatus(user.id, user.is_banned || false)}>
+                              <Ban className="mr-2 h-4 w-4" />
+                              {user.is_banned ? 'Desbloquear' : 'Bloquear'}
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -353,6 +416,198 @@ export default function AdminUsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Detalhes do Usuário */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Usuário</DialogTitle>
+            <DialogDescription>
+              Informações completas do usuário e sua assinatura
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedUser && (
+            <div className="space-y-4">
+              {/* Informações Básicas */}
+              <div>
+                <h3 className="font-semibold mb-2">Informações Básicas</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Nome</p>
+                    <p className="font-medium">{selectedUser.name || 'Sem nome'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Email</p>
+                    <p className="font-medium">{selectedUser.email || 'Não informado'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Telefone</p>
+                    <p className="font-medium">{selectedUser.phone_number || 'Não informado'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Role</p>
+                    <Badge variant="outline">{selectedUser.role}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Data de Cadastro</p>
+                    <p className="font-medium">
+                      {new Date(selectedUser.created_at).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Informações do Plano */}
+              <div>
+                <h3 className="font-semibold mb-2">Plano e Assinatura</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Plano Atual</p>
+                    <Badge variant="secondary" className="mt-1">
+                      {selectedUser.subscription?.plan?.name || 'Free'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Status do Pagamento</p>
+                    {selectedUser.is_banned ? (
+                      <Badge variant="destructive" className="mt-1">
+                        <Ban className="h-3 w-3 mr-1" />
+                        Bloqueado
+                      </Badge>
+                    ) : selectedUser.has_paid ? (
+                      <Badge variant="default" className="bg-green-600 mt-1">
+                        <Check className="h-3 w-3 mr-1" />
+                        Pago
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-yellow-500 mt-1">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Pagamento Pendente
+                      </Badge>
+                    )}
+                  </div>
+                  {selectedUser.subscription?.current_period_end && (
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground">Plano Expira em</p>
+                      <p className="font-medium">
+                        {new Date(selectedUser.subscription.current_period_end).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                      {new Date(selectedUser.subscription.current_period_end) < new Date() && (
+                        <Badge variant="destructive" className="mt-1">
+                          Expirado
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                  {selectedUser.subscription?.status && (
+                    <div>
+                      <p className="text-muted-foreground">Status da Assinatura</p>
+                      <Badge variant="outline" className="mt-1">
+                        {selectedUser.subscription.status}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Reset de Senha */}
+      <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resetar Senha</DialogTitle>
+            <DialogDescription>
+              Um link de recuperação de senha será gerado para o usuário.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja gerar um link de recuperação de senha para este usuário?
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setResetPasswordOpen(false)
+              setResetPasswordUserId(null)
+            }}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmResetPassword}>
+              Gerar Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Alterar Plano */}
+      <Dialog open={changePlanOpen} onOpenChange={setChangePlanOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alterar Plano</DialogTitle>
+            <DialogDescription>
+              Selecione o novo plano para o usuário.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {loadingPlans ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {plans.map((plan) => (
+                  <Button
+                    key={plan.id}
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => confirmChangePlan(plan.id)}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span>{plan.name}</span>
+                      <Badge variant="secondary">
+                        {new Intl.NumberFormat('pt-MZ', {
+                          style: 'currency',
+                          currency: 'MZN',
+                        }).format((plan.price_monthly_cents || 0) / 100)}
+                      </Badge>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setChangePlanOpen(false)
+              setChangePlanUserId(null)
+            }}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
