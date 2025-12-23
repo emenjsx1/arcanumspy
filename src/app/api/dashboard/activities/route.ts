@@ -46,12 +46,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '10')
 
-    // Buscar atividades recentes com timeout
+    // Buscar atividades recentes com timeout reduzido
     try {
       const activities = await Promise.race([
         getRecentActivities(limit),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout ao buscar atividades')), 15000)
+          setTimeout(() => reject(new Error('Timeout ao buscar atividades')), 5000)
         )
       ]) as any
 

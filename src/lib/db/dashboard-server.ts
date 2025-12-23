@@ -164,22 +164,39 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     // Tentar buscar de user_activities primeiro (mais preciso)
     // Usar adminClient para evitar problemas de RLS
     try {
+      // Verificar se a chave de serviço está configurada antes de tentar usar adminClient
+      if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada')
+      }
+      
       const adminClient = createAdminClient()
       
-      // Este mês
-      const { data: initialActivitiesThisMonth, error: activitiesError } = await adminClient
-        .from('user_activities')
-        .select('offer_id')
-        .eq('user_id', user.id)
-        .eq('type', 'OFFER_VIEW')
-        .gte('created_at', startOfMonth.toISOString())
+      // OTIMIZAÇÃO: Timeout de 3 segundos para evitar travamento
+      const statsPromise = Promise.all([
+        adminClient
+          .from('user_activities')
+          .select('offer_id')
+          .eq('user_id', user.id)
+          .eq('type', 'OFFER_VIEW')
+          .gte('created_at', startOfMonth.toISOString()),
+        adminClient
+          .from('user_activities')
+          .select('offer_id')
+          .eq('user_id', user.id)
+          .eq('type', 'OFFER_VIEW')
+      ])
 
-      // Total
-      const { data: initialActivitiesTotal, error: activitiesTotalError } = await adminClient
-        .from('user_activities')
-        .select('offer_id')
-        .eq('user_id', user.id)
-        .eq('type', 'OFFER_VIEW')
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout ao buscar estatísticas')), 3000)
+      )
+
+      const [initialActivitiesThisMonthResult, initialActivitiesTotalResult] = await Promise.race([
+        statsPromise,
+        timeoutPromise
+      ]) as any[]
+
+      const { data: initialActivitiesThisMonth, error: activitiesError } = initialActivitiesThisMonthResult
+      const { data: initialActivitiesTotal, error: activitiesTotalError } = initialActivitiesTotalResult
 
       if (!activitiesError && initialActivitiesThisMonth) {
         const uniqueOffersThisMonth = new Set(initialActivitiesThisMonth.map((a: any) => a.offer_id).filter(Boolean))
@@ -220,21 +237,45 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       }
     }
 
-    // Get favorites count
-    const { count: favoritesCount } = await supabase
-      .from('favorites')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+    // Get favorites count com timeout
+    let favoritesCount = 0
+    try {
+      const favoritesPromise = supabase
+        .from('favorites')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+      
+      const favoritesTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 2000)
+      )
+      
+      const { count } = await Promise.race([favoritesPromise, favoritesTimeout]) as any
+      favoritesCount = count || 0
+    } catch (error) {
+      console.warn('⚠️ [getDashboardStats] Erro ao buscar favoritos:', error)
+    }
 
-    // Get unique categories accessed
-    const { data: viewedOffers } = await supabase
-      .from('offer_views')
-      .select('offer:offers(category_id)')
-      .eq('user_id', user.id)
-
-    const uniqueCategories = new Set(
-      viewedOffers?.map((v: any) => v.offer?.category_id).filter(Boolean) || []
-    )
+    // Get unique categories accessed com timeout
+    let uniqueCategories = new Set<string>()
+    try {
+      const categoriesPromise = supabase
+        .from('offer_views')
+        .select('offer:offers(category_id)')
+        .eq('user_id', user.id)
+        .limit(100) // Limitar para evitar query muito lenta
+      
+      const categoriesTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 2000)
+      )
+      
+      const { data: viewedOffers } = await Promise.race([categoriesPromise, categoriesTimeout]) as any
+      
+      uniqueCategories = new Set(
+        viewedOffers?.map((v: any) => v.offer?.category_id).filter(Boolean) || []
+      )
+    } catch (error) {
+      console.warn('⚠️ [getDashboardStats] Erro ao buscar categorias:', error)
+    }
 
     return {
       offersViewed: viewsCount,
@@ -271,12 +312,12 @@ export async function getRecentActivities(limit = 10): Promise<RecentActivity[]>
     
     if (!user) return []
 
-    // OTIMIZAÇÃO: Timeout de 5 segundos para evitar travamento
+    // OTIMIZAÇÃO: Timeout de 3 segundos para evitar travamento
     const timeoutPromise = new Promise<RecentActivity[]>((resolve) => {
       setTimeout(() => {
         console.warn('⚠️ [getRecentActivities] Timeout, usando fallback')
         resolve([])
-      }, 5000)
+      }, 3000)
     })
 
     const activitiesPromise = (async () => {
@@ -284,6 +325,11 @@ export async function getRecentActivities(limit = 10): Promise<RecentActivity[]>
       // Usar adminClient para evitar problemas de RLS
       let activities: any[] = []
       try {
+        // Verificar se a chave de serviço está configurada
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+          throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada')
+        }
+        
         const adminClient = createAdminClient()
         const { data, error: activitiesError } = await adminClient
           .from('user_activities')

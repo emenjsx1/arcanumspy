@@ -44,12 +44,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Buscar estatísticas do dashboard com timeout
+    // Buscar estatísticas do dashboard com timeout reduzido
     try {
       const stats = await Promise.race([
         getDashboardStats(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout ao buscar estatísticas')), 15000)
+          setTimeout(() => reject(new Error('Timeout ao buscar estatísticas')), 5000)
         )
       ]) as any
 
