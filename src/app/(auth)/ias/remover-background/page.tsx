@@ -71,17 +71,29 @@ export default function RemoverBackgroundPage() {
         body: formData
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error('Erro ao remover background')
+        const errorMsg = data.error || data.message || data.warning || 'Erro ao remover background'
+        throw new Error(errorMsg)
       }
 
-      const data = await response.json()
       if (data.success && data.imageUrl) {
         setResultUrl(data.imageUrl)
         toast({
           title: "Sucesso",
-          description: "Background removido com sucesso!",
+          description: data.message || "Background removido com sucesso!",
         })
+      } else if (data.imageUrl) {
+        // Se tiver imageUrl mesmo sem success: true, usar (fallback)
+        setResultUrl(data.imageUrl)
+        toast({
+          title: data.warning ? "Aviso" : "Sucesso",
+          description: data.message || data.warning || "Imagem processada (pode não ter removido o background)",
+          variant: data.warning ? "default" : "default"
+        })
+      } else {
+        throw new Error(data.message || data.error || 'Resposta inválida do servidor')
       }
     } catch (error: any) {
       console.error('Erro ao remover background:', error)

@@ -89,13 +89,21 @@ export default function MascararCriativoPage() {
 
       const response = await fetch(endpoint, {
         method: 'POST',
+        credentials: 'include',
         headers,
         body: formData
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Erro ao processar arquivo')
+        let errorMessage = 'Erro ao processar arquivo'
+        try {
+          const error = await response.json()
+          errorMessage = error.error || error.message || errorMessage
+        } catch {
+          // Se não conseguir parsear JSON, usar mensagem padrão
+          errorMessage = `Erro ${response.status}: ${response.statusText}`
+        }
+        throw new Error(errorMessage)
       }
 
       // Criar URL para download
