@@ -95,15 +95,32 @@ export async function getActiveCommunitiesForUser(): Promise<CommunityWithStats[
  */
 export async function joinCommunity(userId: string, communityId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    // Verificar se a comunidade existe
+    // Verificar se a comunidade existe - usar maybeSingle para não falhar se não encontrar
     const { data: community, error: communityError } = await supabase
       .from('communities')
-      .select('is_active')
+      .select('id, is_active')
       .eq('id', communityId)
-      .single()
+      .maybeSingle()
 
-    if (communityError || !community) {
-      throw new Error('Comunidade não encontrada')
+    // Verificar se é erro de "não encontrado" ou outro erro
+    if (communityError) {
+      // Se for erro PGRST116 (não encontrado), retornar mensagem específica
+      if (communityError.code === 'PGRST116' || communityError.message?.includes('No rows')) {
+        return {
+          success: false,
+          error: 'Comunidade não encontrada. Verifique se o ID está correto.'
+        }
+      }
+      // Outros erros
+      console.error('❌ Erro ao buscar comunidade:', communityError)
+      throw communityError
+    }
+
+    if (!community) {
+      return {
+        success: false,
+        error: 'Comunidade não encontrada. Verifique se o ID está correto.'
+      }
     }
 
     if (!community.is_active) {

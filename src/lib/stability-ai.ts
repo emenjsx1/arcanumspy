@@ -199,11 +199,16 @@ export async function upscaleImage(
     ? `${STABILITY_API_URL}/v1/image-to-image/upscale/esrgan-v1-x2plus`
     : `${STABILITY_API_URL}/v1/image-to-image/upscale/stable-diffusion-x4-latent-upscaler`
 
+  // Verificar se a API key está configurada
+  if (!STABILITY_API_KEY) {
+    throw new Error('STABILITY_API_KEY não configurada. Configure a variável de ambiente STABILITY_API_KEY.')
+  }
+
   console.log('📤 Enviando requisição de upscale para Stability AI:', {
     endpoint,
     model,
     imageSize: imageBuffer.length,
-    apiKey: STABILITY_API_KEY ? `${STABILITY_API_KEY.substring(0, 10)}...` : 'NÃO CONFIGURADA'
+    apiKey: `${STABILITY_API_KEY.substring(0, 10)}...`
   })
 
   // Usar https nativo do Node.js para garantir compatibilidade com form-data

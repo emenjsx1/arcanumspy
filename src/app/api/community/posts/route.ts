@@ -131,18 +131,42 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar se a comunidade existe e está ativa
+    // Verificar se a comunidade existe e está ativa - usar maybeSingle para melhor tratamento
     const { data: community, error: communityError } = await supabase
       .from('communities')
       .select('id, is_active')
       .eq('id', community_id)
-      .single()
+      .maybeSingle()
+
+    // Verificar se é erro de "não encontrado" ou outro erro
+    if (communityError) {
+      console.error('❌ Erro ao buscar comunidade:', communityError)
+      // Se for erro PGRST116 (não encontrado), retornar mensagem específica
+      if (communityError.code === 'PGRST116' || communityError.message?.includes('No rows')) {
+        return NextResponse.json(
+          { error: "Comunidade não encontrada. Verifique se o ID está correto." },
+          { status: 404 }
+        )
+      }
+      return NextResponse.json(
+        { error: "Erro ao verificar comunidade", details: communityError.message },
+        { status: 500 }
+      )
+    }
 
     const communityData = community as { id: string; is_active: boolean } | null
-    if (communityError || !communityData || !communityData.is_active) {
+    
+    if (!communityData) {
       return NextResponse.json(
-        { error: "Comunidade não encontrada ou inativa" },
+        { error: "Comunidade não encontrada. Verifique se o ID está correto." },
         { status: 404 }
+      )
+    }
+
+    if (!communityData.is_active) {
+      return NextResponse.json(
+        { error: "Esta comunidade não está ativa no momento" },
+        { status: 403 }
       )
     }
 
@@ -153,17 +177,24 @@ export async function POST(request: NextRequest) {
       .select('id')
       .eq('user_id', user.id)
       .eq('community_id', community_id)
-      .single()
+      .maybeSingle()
 
-    // Se não for membro, adicionar automaticamente
+    // Se não for membro, adicionar automaticamente (ignorar erro se já existir)
     if (!membership) {
-      await (supabase
+      const { error: membershipError } = await (supabase
         .from('community_members') as any)
-        .insert({
+        .upsert({
           user_id: user.id,
-          community_id: community_id
+          community_id: community_id,
+          joined_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,community_id'
         })
-        .select()
+
+      // Ignorar erro de duplicata (já é membro)
+      if (membershipError && membershipError.code !== '23505') {
+        console.warn('⚠️ Erro ao adicionar membro (continuando mesmo assim):', membershipError)
+      }
     }
 
     const { data: post, error } = await (supabase

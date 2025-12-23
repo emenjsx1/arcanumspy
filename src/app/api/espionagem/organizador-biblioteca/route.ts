@@ -75,17 +75,35 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { nome, descricao } = body
 
+    // Validar campos obrigatórios
+    if (!nome || !nome.trim()) {
+      return NextResponse.json(
+        { error: "Nome da pasta é obrigatório" },
+        { status: 400 }
+      )
+    }
+
     const { data, error } = await (supabase
       .from('biblioteca_pastas') as any)
       .insert({
         user_id: user.id,
-        nome,
-        descricao
+        nome: nome.trim(),
+        descricao: descricao?.trim() || null
       })
       .select()
       .single()
 
     if (error) {
+      console.error('❌ Erro ao criar pasta:', error)
+      
+      // Verificar se é erro de constraint (nome duplicado, etc)
+      if (error.code === '23505') {
+        return NextResponse.json(
+          { error: "Já existe uma pasta com este nome" },
+          { status: 409 }
+        )
+      }
+      
       return NextResponse.json(
         { error: "Erro ao criar pasta", details: error.message },
         { status: 500 }
@@ -97,6 +115,7 @@ export async function POST(request: NextRequest) {
       pasta: data
     })
   } catch (error: any) {
+    console.error('❌ Erro ao processar requisição POST /api/espionagem/organizador-biblioteca:', error)
     return NextResponse.json(
       { error: error.message || "Erro ao processar requisição" },
       { status: 500 }
